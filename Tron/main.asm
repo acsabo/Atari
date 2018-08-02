@@ -34,7 +34,8 @@
         include "macro.h"
         include "xmacro.h"
  
-SpriteHeight	equ 17 
+SpriteHeight	equ 8 
+MaxRows		equ 18
  
 ;===============================================================================
 ; Define RAM Usage
@@ -59,6 +60,7 @@ Player1XPrev	.byte
 
 Player2YPrev	.byte
 Player2XPrev	.byte
+Temp		.byte
 
 PF0_left	ds 19
 PF1_left	ds 19
@@ -101,13 +103,15 @@ InitSystem:
         sta Player2X
         lda #15
         sta Player2Y        
-
+        
+        ;init grid mem
         ldy #144
         lda #$00
 initGrid:
 	sta PF0_left,y	
         dey
         bne initGrid        
+        
         
 ;===============================================================================
 ; Main Program Loop
@@ -148,7 +152,21 @@ VerticalSync:
 ; game logic runs here.  Coming soon!
 ;===============================================================================
 
-VerticalBlank:    
+VerticalBlank:
+
+	;grid color
+        lda #$70
+        sta COLUBK
+        
+	lda #$48
+        sta COLUPF
+                       
+	;player color
+        lda #$52
+        sta COLUP0        
+        lda #$A2
+        sta COLUP1    
+        
         rts             ; ReTurn from Subroutine
     
 ;===============================================================================
@@ -171,40 +189,29 @@ Kernel:
         SLEEP 10 ; to make timing analysis work out
        
         ;from the beging over and over
-        sta WSYNC
-        ldy #0
-
-      	lda LineHeight,y
-        tax
+        ;sta WSYNC
         
-        lda #$70;ColorBackGround,y
-        sta COLUBK
+	;reset grid
+        ldy #MaxRows
+        ldx #SpriteHeight
         
-	lda #$48;ColorForeGround,y
-        sta COLUPF
-                       
-                  
-	;---- MISSILE POSITION
-        lda #$52
-        sta COLUP0
-        lda #2; bit 1 now set         
-        sta ENAM0; enable/disable missile
-        
-        lda #$A0
-        sta HMM0
-        ;sta RESMP0
-        
-        lda #$A2
-        sta COLUP1
-        lda #2; bit 1 now set 
-        sta ENAM1; enable/disable missile        
+        lda Player1Y
+        lsr
+        lsr
+        sta Temp
         
 RowsHeightLoop
-
+	lda #SpriteHeight
+	sec
+        sbc Temp
+        bcs doDraw
+        lda #0			; no, load the padding offset (0)
+doDraw:       
+        sta ENAM0; enable/disable missile
+	sta ENAM1; enable/disable missile            
+        
 	sta WSYNC        
 	
-
-        
 PatternChanged
 
         lda PF0_left,y 
@@ -222,36 +229,68 @@ PatternChanged
         sta PF0 ; PF0 
         
         lda PF1_right,y
-        sta PF1 ; PF1    33aqq
+        sta PF1 ; PF1
         
         lda PF2_right,y
         sta PF2 ; PF2        
         
         dex
         bne RowsHeightLoop  ; Branch if Not Equal to 0    
-	SLEEP 8; == nop X 6
-   
+	SLEEP 12
+           
+        dey ;next grid line, if there is more
+        bmi RowsEnd
+        ldx #SpriteHeight
         
-        iny ;next pattern index
-      	lda LineHeight,y
-        
-        tax
-        beq RowsEnd
-        jmp PatternChanged;RowsHeightLoop; == 0, we're done
+        jmp PatternChanged
         
 RowsEnd        
-        sta WSYNC
-
+        ;sta WSYNC
+        
+        lda #0			; no, load the padding offset (0)
+        sta ENAM0; enable/disable missile
+	sta ENAM1; enable/disable missile    
+        
         lda #0
         sta PF0
         sta PF1
         sta PF2 ; clear playfield
         sta COLUBK
-        sta COLUPF  
+        sta COLUPF        
 
         ; Wait for timer to finish
         TIMER_WAIT
         rts	; ReTurn from Subroutine
+
+UpdatePosition subroutine
+; We're going to divide the horizontal position by 15.
+; The easy way on the 6502 is to subtract in a loop.
+; Note that this also conveniently adds 5 CPU cycles
+; (15 TIA clocks) per iteration.
+	sta WSYNC	; 36th line
+	sta HMCLR	; reset the old horizontal position
+DivideLoop
+	sbc #15		; subtract 15
+	bcs DivideLoop	; branch until negative
+; A now contains (the remainder - 15).
+; We'll convert that into a fine adjustment, which has
+; the range -8 to +7.
+	eor #7
+	asl		; HMOVE only uses the top 4 bits, so shift by 4
+	asl
+	asl
+	asl
+; The fine offset goes into HMP0
+	sta HMM0
+; Now let's fix the coarse position of the player, which as you
+; remember is solely based on timing. If you rearrange any of the
+; previous instructions, position 0 won't be exactly on the left side.
+	sta RESM0
+; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
+	sta WSYNC	; 37th line
+	sta HMOVE	; apply offset
+	rts
+
 
 CheckColliison subroutine
         ;check collisions
@@ -350,17 +389,17 @@ MoveJoystick
         ; Move vertically
         ; (up and down are actually reversed since ypos starts at bottom)
         ldx Player1Y
-        lda #%00010000	;Up?
+        lda #%00100000	;Up?
         bit SWCHA
         bne SkipMoveUp
         cpx #1
         bcc SkipMoveUp
         dex
 SkipMoveUp
-        lda #%00100000	;Down?
+        lda #%00010000	;Down?
         bit SWCHA 
         bne SkipMoveDown
-        cpx #74
+        cpx #72
         bcs SkipMoveDown
         inx
 SkipMoveDown
@@ -423,6 +462,10 @@ OverScan:
         dec Player2X
 
         jsr MoveJoystick
+        
+        ;update positions
+       	lda Player1X	; load the counter as horizontal position
+        jsr UpdatePosition
 OSwait:
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM   ; Check the timer
@@ -443,9 +486,6 @@ OSwait:
 ; Digit Graphics
 ;===============================================================================
         align 256
-        
-LineHeight                  
-	.byte #$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$08,#$00;
 
 BitReprF0
 	.byte #%00010000,#%00100000,#%01000000,#%10000000
@@ -456,24 +496,6 @@ BitReprF1
 BitReprF2
 	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
 
-Frame0
-	.byte #0
-        .byte #%00011000;
-        .byte #%00111100;
-        .byte #%00111100;
-        .byte #%01111110;
-        .byte #%00111100;
-        .byte #%00011000;
-        .byte #%00011000;
-        .byte #%10011001;
-        .byte #%10011001;
-        .byte #%00111100;
-        .byte #%00111100;
-        .byte #%00111100;
-        .byte #%00011000;
-        .byte #%00011000;
-        .byte #%00111100;
-        .byte #%00011000; 
 	          
 ;===============================================================================
 ; free space check before End of Cartridge
@@ -491,4 +513,3 @@ Frame0
         .WORD InitSystem ; NMI
         .WORD InitSystem ; RESET
         .WORD InitSystem ; IRQ
-        
