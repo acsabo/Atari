@@ -60,8 +60,12 @@ Player1XPrev	.byte
 
 Player2YPrev	.byte
 Player2XPrev	.byte
+
 TempP1		.byte
 TempP2		.byte
+
+ScoreP1		.byte
+ScoreP2		.byte
 
 PF0_left	ds 19
 PF1_left	ds 19
@@ -119,13 +123,6 @@ initGrid:
 ;===============================================================================
 
 Main:
-        jsr VerticalSync    ; Jump to SubRoutine VerticalSync
-	jsr VerticalBlank   ; Jump to SubRoutine VerticalBlank
-        jsr Kernel          ; Jump to SubRoutine Kernel
-        jsr OverScan        ; Jump to SubRoutine OverScan
-        jmp Main            ; JuMP to Main
-    
-
 ;===============================================================================
 ; Vertical Sync
 ; -------------
@@ -134,7 +131,6 @@ Main:
 ; The Sync Signal must be on for 3 scanlines.
 ;===============================================================================
 
-VerticalSync:
         lda #2      ; LoaD Accumulator with 2 so D1=1
         ldx #49     ; LoaD X with 49
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
@@ -145,16 +141,12 @@ VerticalSync:
         lda #0      ; LoaD Accumulator with 0 so D1=0
 	sta WSYNC   ; wait until end of 3rd scanline of VSYNC
         sta VSYNC   ; Accumulator D1=0, turns off Vertical Sync signal
-        rts         ; ReTurn from Subroutine
-    
+
 ;===============================================================================
 ; Vertical Blank
 ; --------------
 ; game logic runs here.  Coming soon!
-;===============================================================================
-
-VerticalBlank:
-
+;===============================================================================        
 	;grid color
         lda #$70
         sta COLUBK
@@ -168,20 +160,18 @@ VerticalBlank:
         lda #$A2
         sta COLUP1    
 
-        ;jsr CheckCollisionP1
-        ;jsr CheckCollisionP2
+        jsr CheckCollisionP1
+        jsr CheckCollisionP2
 
-        rts             ; ReTurn from Subroutine
-    
+
 ;===============================================================================
 ; Kernel
 ; ------
 ; here we update the registers in TIA (the video chip) in order to generate
 ; what the player sees.  For now we're just going to output 192 colored
 ; scanlines lines so we have something to see.
-;===============================================================================
-
-Kernel:            
+;===============================================================================        
+Kernel        
         sta WSYNC       ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM       ; check the timer
         bne Kernel      ; Branch if its Not Equal to 0
@@ -209,8 +199,7 @@ Kernel:
         lsr
         sta TempP2
         inc TempP2
-              
-        ;dey
+        
 RowsHeightLoop
          
 	sta WSYNC        
@@ -254,17 +243,17 @@ doDrawP2:
         beq doDrawP1
         lda #0			; no, load the padding offset (0)
 doDrawP1:       
-        sta ENAM0; enable/disable missile        
+        
 	;--------------
 	stx ENAM1; enable/disable missile     
         ldx #SpriteHeight
+        sta ENAM0; enable/disable missile        
         
    	dey ;next grid line, if there is more
         bmi RowsEnd            
         jmp PatternChanged
         
 RowsEnd        
-        ;sta WSYNC
         lda #0
         sta PF0
         sta PF1
@@ -282,7 +271,60 @@ RowsEnd
 
         ; Wait for timer to finish
         TIMER_WAIT
-        rts	; ReTurn from Subroutine
+
+;===============================================================================
+; Overscan
+; --------------
+; game logic runs here.  Since we don't have any yet, just delay so that the
+; entire video frame consists of 262 scanlines
+;===============================================================================
+	sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
+        lda #2      ; LoaD Accumulator with 2 so D1=1
+        sta VBLANK  ; STore Accumulator to VBLANK, D1=1 turns image output off
+
+        ; set the timer for 27 scanlines.  Each scanline lasts 76 cycles,
+        ; but the timer counts down once every 64 cycles, so use this
+        ; formula to figure out the value to set.  
+        ;       (scanlines * 76) / 64    
+        ; Also note that it might be slight off due to when on the scanline TIM64T
+        ; is updated.  So use Stella to check how many scanlines the code is
+        ; generating and adjust accordingly.
+        lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
+        sta TIM64T  ; set timer to go off in 27 scanlines
+
+        ; game logic will go here
+   
+
+        ;draw player 1
+	ldy Player1Y	
+        ldx Player1X
+        jsr UpdateGrid                
+        ;inc Player1X
+
+        ;draw player 2
+        ldy Player2Y	
+        ldx Player2X
+        jsr UpdateGrid                
+        inc Player2X
+
+        jsr MoveJoystick
+        
+        ;update positions
+       	lda Player1X	; load the counter as horizontal position
+        adc #6
+        jsr UpdatePositionP1
+        
+        
+        lda Player2X
+        adc #6
+        jsr UpdatePositionP2
+OSwait:
+        sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
+        lda INTIM   ; Check the timer
+        bne OSwait  ; Branch if its Not Equal to 0
+
+        
+        jmp Main            ; JuMP to Main
 
 UpdatePositionP1 subroutine
 ; We're going to divide the horizontal position by 15.
@@ -354,6 +396,9 @@ CheckCollisionP1 subroutine
         sta Player1Y
         lda Player1XPrev
         sta Player1X
+        
+        ;Update scores
+        inc ScoreP2
         jmp NoMoveJoyP1
 NoCollisionP1:
 ; No collision, update previous position and move player
@@ -375,6 +420,9 @@ CheckCollisionP2 subroutine
         sta Player2Y
         lda Player2XPrev
         sta Player2X
+        
+        ;Update scores
+        inc ScoreP1       
         jmp NoMoveJoyP2
 NoCollisionP2:
 ; No collision, update previous position and move player
@@ -496,60 +544,7 @@ SkipMoveRight
 	stx Player1X
 	rts
         
-;===============================================================================
-; Overscan
-; --------------
-; game logic runs here.  Since we don't have any yet, just delay so that the
-; entire video frame consists of 262 scanlines
-;===============================================================================
 
-OverScan:
-	sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
-        lda #2      ; LoaD Accumulator with 2 so D1=1
-        sta VBLANK  ; STore Accumulator to VBLANK, D1=1 turns image output off
-
-        ; set the timer for 27 scanlines.  Each scanline lasts 76 cycles,
-        ; but the timer counts down once every 64 cycles, so use this
-        ; formula to figure out the value to set.  
-        ;       (scanlines * 76) / 64    
-        ; Also note that it might be slight off due to when on the scanline TIM64T
-        ; is updated.  So use Stella to check how many scanlines the code is
-        ; generating and adjust accordingly.
-        lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
-        sta TIM64T  ; set timer to go off in 27 scanlines
-
-        ; game logic will go here
-   
-
-        ;draw player 1
-	ldy Player1Y	
-        ldx Player1X
-        jsr UpdateGrid                
-        ;inc Player1X
-
-        ;draw player 2
-        ldy Player2Y	
-        ldx Player2X
-        jsr UpdateGrid                
-        inc Player2X
-
-        jsr MoveJoystick
-        
-        ;update positions
-       	lda Player1X	; load the counter as horizontal position
-        adc #6
-        jsr UpdatePositionP1
-        
-        
-        lda Player2X
-        adc #6
-        jsr UpdatePositionP2
-OSwait:
-        sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
-        lda INTIM   ; Check the timer
-        bne OSwait  ; Branch if its Not Equal to 0
-        rts         ; ReTurn from Subroutine
-        
 ;===============================================================================
 ; free space check before DigitGfx
 ;===============================================================================
@@ -574,6 +569,18 @@ BitReprF1
 BitReprF2
 	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
 
+; Bitmap pattern for digits
+DigitsBitmap ;;{w:8,h:6,count:10,brev:1};;
+        .byte $EE,$AA,$AA,$AA,$EE,$00
+        .byte $22,$22,$22,$22,$22,$00
+        .byte $EE,$22,$EE,$88,$EE,$00
+        .byte $EE,$22,$66,$22,$EE,$00
+        .byte $AA,$AA,$EE,$22,$22,$00
+        .byte $EE,$88,$EE,$22,$EE,$00
+        .byte $EE,$88,$EE,$AA,$EE,$00
+        .byte $EE,$22,$22,$22,$22,$00
+        .byte $EE,$AA,$EE,$AA,$EE,$00
+        .byte $EE,$AA,$EE,$22,$EE,$00
 	          
 ;===============================================================================
 ; free space check before End of Cartridge
