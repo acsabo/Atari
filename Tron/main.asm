@@ -94,15 +94,15 @@ InitSystem:
         CLEAN_START   
         
         ;player position
-        lda #64
+        lda #0
         sta Player1X
-	lda #4
+	lda #0
         sta Player1Y
         
         ;player position
-        lda #4
+        lda #0
         sta Player2X
-        lda #31
+        lda #75
         sta Player2Y        
         
         ;init grid mem
@@ -199,17 +199,16 @@ Kernel:
         ldy #MaxRows
         ldx #SpriteHeight
         
-        lda Player1Y
+        lda Player1Y	; NÃO ESTÁ AGINTINGO O RANGE [0-18] = 19 ROWS
         lsr
         lsr
         sta TempP1
-        ;inc TempP1
 
         lda Player2Y
         lsr
         lsr
         sta TempP2
-        ;inc TempP2
+        inc TempP2
               
         ;dey
 RowsHeightLoop
@@ -241,10 +240,6 @@ PatternChanged
         
         dex
         bne RowsHeightLoop  ; Branch if Not Equal to 0    
-	;SLEEP 2;10
-
-   	dey ;next grid line, if there is more
-        bmi RowsEnd    
 
 	;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
 	lda #2
@@ -264,10 +259,12 @@ doDrawP1:
 	stx ENAM1; enable/disable missile     
         ldx #SpriteHeight
         
+   	dey ;next grid line, if there is more
+        bmi RowsEnd            
         jmp PatternChanged
         
 RowsEnd        
-        sta WSYNC
+        ;sta WSYNC
         lda #0
         sta PF0
         sta PF1
