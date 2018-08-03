@@ -168,8 +168,8 @@ VerticalBlank:
         lda #$A2
         sta COLUP1    
 
-        jsr CheckCollisionP1
-        jsr CheckCollisionP2
+        ;jsr CheckCollisionP1
+        ;jsr CheckCollisionP2
 
         rts             ; ReTurn from Subroutine
     
@@ -203,14 +203,15 @@ Kernel:
         lsr
         lsr
         sta TempP1
-        inc TempP1
+        ;inc TempP1
 
         lda Player2Y
         lsr
         lsr
         sta TempP2
-        inc TempP2
-                
+        ;inc TempP2
+              
+        ;dey
 RowsHeightLoop
          
 	sta WSYNC        
@@ -226,7 +227,7 @@ PatternChanged
         lda PF2_left,y 
         sta PF2 ; PF2
                
-	SLEEP 8
+	SLEEP 6
         
         lda PF0_right,y
         sta PF0 ; PF0 
@@ -235,45 +236,46 @@ PatternChanged
         sta PF1 ; PF1
         
         lda PF2_right,y
-        sta PF2 ; PF2        
+        sta PF2 ; PF2 
+
         
         dex
         bne RowsHeightLoop  ; Branch if Not Equal to 0    
 	;SLEEP 2;10
 
-       
+   	dey ;next grid line, if there is more
+        bmi RowsEnd    
 
-	;--------------
+	;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
+	lda #2
+        cpy TempP2
+        beq doDrawP2
+        lda #0			; no, load the padding offset (0)        
+doDrawP2:       
+	tax	; backup para dar tempo !!! aproveitando o x já que está zerado
+        
         lda #2
         cpy TempP1
         beq doDrawP1
         lda #0			; no, load the padding offset (0)
 doDrawP1:       
-        sta ENAM0; enable/disable missile
-
-	lda #2
-        cpy TempP2
-        beq doDrawP2
-        lda #0			; no, load the padding offset (0)
-doDrawP2:       
-	sta ENAM1; enable/disable missile     
+        sta ENAM0; enable/disable missile        
 	;--------------
-
-	dey ;next grid line, if there is more
-
-        bmi RowsEnd
+	stx ENAM1; enable/disable missile     
         ldx #SpriteHeight
         
         jmp PatternChanged
         
 RowsEnd        
-        ;sta WSYNC
+        sta WSYNC
         lda #0
         sta PF0
         sta PF1
         sta PF2 ; clear playfield
         sta COLUBK
-        sta COLUPF        
+        sta COLUPF
+        sta ENAM0
+        sta ENAM1
 
         
         lda #0			; no, load the padding offset (0)
