@@ -173,16 +173,8 @@ Kernel
         ; Set up timer (in case of bugs where we don't hit exactly)
         TIMER_SETUP 192
         SLEEP 10 ; to make timing analysis work out
-       
-        ;from the beging over and over
-        ;sta WSYNC
-        ;----------------------------
-        ldx 5
-spendSomeTime:        
-        sta WSYNC 
-        dex
-        bne spendSomeTime
-        ;----------------------------
+        sta WSYNC
+        
         
 	;grid color
         lda #$70
@@ -190,10 +182,6 @@ spendSomeTime:
         
 	lda #$48
         sta COLUPF        
-        
-	;reset grid
-        ldy #MaxRows
-        ldx #SpriteHeight
         
         lda Player1Y	; NÃO ESTÁ AGINTINGO O RANGE [0-18] = 19 ROWS
         lsr
@@ -204,40 +192,14 @@ spendSomeTime:
         lsr
         lsr
         sta TempP2
-        inc TempP2
         
-RowsHeightLoop
-         
-	sta WSYNC        
-	
-PatternChanged
-
-        lda PF0_left,y 
-        sta PF0 ; PF0 
         
-        lda PF1_left,y 
-        sta PF1 ; PF1    
-        
-        lda PF2_left,y 
-        sta PF2 ; PF2
-               
-	SLEEP 6
-        
-        lda PF0_right,y
-        sta PF0 ; PF0 
-        
-        lda PF1_right,y
-        sta PF1 ; PF1
-        
-        lda PF2_right,y
-        sta PF2 ; PF2 
-
-        
-        dex
-        bne RowsHeightLoop  ; Branch if Not Equal to 0    
+        ldy #MaxRows	; start        
+        ;===========
+        SLEEP 14	; TRICK TO WAIT FOR THE RIGHT TIME
+PatternChanged      
 
 	;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
-	;lda #2
         lda #$F
         cpy TempP2
         beq doDrawP2
@@ -245,7 +207,6 @@ PatternChanged
 doDrawP2:       
 	tax	; backup para dar tempo !!! aproveitando o x já que está zerado
         
-        ;lda #2
         lda #$F
         cpy TempP1
         beq doDrawP1
@@ -253,29 +214,53 @@ doDrawP2:
 doDrawP1:       
         
 	;--------------
-	;stx ENAM1; enable/disable missile     
+	;enable/disable player
         stx GRP1
         ldx #SpriteHeight
-        ;sta ENAM0; enable/disable missile        
         sta GRP0 
+	jmp SkipLine        ; TO AVOID BLANK LINE
+
+RowsHeightLoop
+	sta WSYNC        
+SkipLine
+        lda PF0_left,y 
+        sta PF0 
         
-   	dey ;next grid line, if there is more
-        bmi RowsEnd            
-        jmp PatternChanged
+        lda PF1_left,y 
+        sta PF1     
+        
+        lda PF2_left,y 
+        sta PF2 
+               
+	SLEEP 6
+        
+        lda PF0_right,y
+        sta PF0
+        
+        lda PF1_right,y
+        sta PF1
+        
+        lda PF2_right,y
+        sta PF2
+        
+        dex
+        bne RowsHeightLoop  	; Branch if Not Equal to 0    
+
+   	dey  
+        bne PatternChanged	; NEXT LINE OF THE GRID
         
 RowsEnd        
+        sta WSYNC	; NEED TO WAIT FOR THE CURRENT LINE TO COMPLETE
         lda #0
         sta PF0
         sta PF1
         sta PF2 ; clear playfield
         sta COLUBK
         sta COLUPF
-        ;sta ENAM0
-        ;sta ENAM1
+        
         sta GRP0
         sta GRP1
 
-	;sta WSYNC 
         ; Wait for timer to finish
         TIMER_WAIT
 
@@ -301,8 +286,11 @@ RowsEnd
 
         ; game logic will go here
    
-	jsr MoveJoystick
+
         
+   
+        
+        ;------------
         ;draw player 1
 	ldy Player1Y	
         ldx Player1X
@@ -324,6 +312,8 @@ RowsEnd
         lda Player2X
         inc Player2X	; move player 2
         jsr UpdatePositionP2
+
+	jsr MoveJoystick
 OSwait:
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM   ; Check the timer
@@ -332,6 +322,11 @@ OSwait:
         
         jmp Main            ; JuMP to Main
 
+;===============================================================================
+; UpdatePositionP1 subroutine
+; --------------
+;
+;===============================================================================
 UpdatePositionP1 subroutine
 ; We're going to divide the horizontal position by 15.
 ; The easy way on the 6502 is to subtract in a loop.
@@ -395,7 +390,11 @@ DivideLoop2:
 	sta HMOVE	; apply offset
 	rts
 
-
+;===============================================================================
+; CheckCollision
+; --------------
+;
+;===============================================================================
 CheckCollisionP1 subroutine
         ;check collisions
 ; Did the player collide with the wall?
@@ -446,6 +445,11 @@ NoCollisionP2:
 NoMoveJoyP2    
 	rts
         
+;===============================================================================
+; UpdateGrid
+; --------------
+;
+;===============================================================================
 UpdateGrid subroutine
 	tya
         lsr
@@ -517,7 +521,11 @@ pf2_r:
         sta PF2_right,y	
 	rts	
         
-        ; Read joystick movement and apply to object 0
+;===============================================================================
+; MoveJoystick
+; --------------
+; Read joystick movement and apply to object 0
+;===============================================================================        
 MoveJoystick
         ; Move vertically
         ; (up and down are actually reversed since ypos starts at bottom)
@@ -527,6 +535,22 @@ MoveJoystick
         bne SkipMoveUp
         cpx #1
         bcc SkipMoveUp
+        
+        ;------change X ?????????????????
+        ;sec
+        ldy Player1Y
+        cpy Player1YPrev
+        bpl Continue
+        
+        dec Player1X
+        dec Player1X
+        dec Player1X
+        dec Player1X
+Continue
+	
+        ;------
+
+        
         dex
 SkipMoveUp
         lda #%00010000	;Down?
