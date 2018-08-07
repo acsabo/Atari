@@ -98,15 +98,15 @@ InitSystem:
         CLEAN_START   
         
         ;player position
-        lda #0
+        lda #40
         sta Player1X
-	lda #0
+	lda #12
         sta Player1Y
         
         ;player position
         lda #0
         sta Player2X
-        lda #75
+        lda #20
         sta Player2Y        
         
         ;init grid mem
@@ -147,22 +147,14 @@ Main:
 ; --------------
 ; game logic runs here.  Coming soon!
 ;===============================================================================        
-	;grid color
-        lda #$70
-        sta COLUBK
-        
-	lda #$48
-        sta COLUPF
-                       
 	;player color
         lda #$52
         sta COLUP0        
         lda #$A2
         sta COLUP1    
 
-        jsr CheckCollisionP1
+        ;jsr CheckCollisionP1
         jsr CheckCollisionP2
-
 
 ;===============================================================================
 ; Kernel
@@ -184,6 +176,20 @@ Kernel
        
         ;from the beging over and over
         ;sta WSYNC
+        ;----------------------------
+        ldx 5
+spendSomeTime:        
+        sta WSYNC 
+        dex
+        bne spendSomeTime
+        ;----------------------------
+        
+	;grid color
+        lda #$70
+        sta COLUBK
+        
+	lda #$48
+        sta COLUPF        
         
 	;reset grid
         ldy #MaxRows
@@ -231,23 +237,27 @@ PatternChanged
         bne RowsHeightLoop  ; Branch if Not Equal to 0    
 
 	;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
-	lda #2
+	;lda #2
+        lda #$F
         cpy TempP2
         beq doDrawP2
         lda #0			; no, load the padding offset (0)        
 doDrawP2:       
 	tax	; backup para dar tempo !!! aproveitando o x já que está zerado
         
-        lda #2
+        ;lda #2
+        lda #$F
         cpy TempP1
         beq doDrawP1
         lda #0			; no, load the padding offset (0)
 doDrawP1:       
         
 	;--------------
-	stx ENAM1; enable/disable missile     
+	;stx ENAM1; enable/disable missile     
+        stx GRP1
         ldx #SpriteHeight
-        sta ENAM0; enable/disable missile        
+        ;sta ENAM0; enable/disable missile        
+        sta GRP0 
         
    	dey ;next grid line, if there is more
         bmi RowsEnd            
@@ -260,15 +270,12 @@ RowsEnd
         sta PF2 ; clear playfield
         sta COLUBK
         sta COLUPF
-        sta ENAM0
-        sta ENAM1
+        ;sta ENAM0
+        ;sta ENAM1
+        sta GRP0
+        sta GRP1
 
-        
-        lda #0			; no, load the padding offset (0)
-        sta ENAM0; enable/disable missile
-	sta ENAM1; enable/disable missile    
-        
-
+	;sta WSYNC 
         ; Wait for timer to finish
         TIMER_WAIT
 
@@ -294,7 +301,8 @@ RowsEnd
 
         ; game logic will go here
    
-
+	jsr MoveJoystick
+        
         ;draw player 1
 	ldy Player1Y	
         ldx Player1X
@@ -304,19 +312,17 @@ RowsEnd
         ;draw player 2
         ldy Player2Y	
         ldx Player2X
-        jsr UpdateGrid                
-        inc Player2X
+        jsr UpdateGrid
 
-        jsr MoveJoystick
-        
+                
         ;update positions
        	lda Player1X	; load the counter as horizontal position
-        adc #6
+        ;inc Player1X
         jsr UpdatePositionP1
         
         
         lda Player2X
-        adc #6
+        inc Player2X	; move player 2
         jsr UpdatePositionP2
 OSwait:
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
@@ -345,11 +351,13 @@ DivideLoop1:
 	asl
 	asl
 ; The fine offset goes into HMP0
-	sta HMM0
+	;sta HMM0
+        sta HMP0
 ; Now let's fix the coarse position of the player, which as you
 ; remember is solely based on timing. If you rearrange any of the
 ; previous instructions, position 0 won't be exactly on the left side.
-	sta RESM0
+	;sta RESM0
+        sta RESP0
 ; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
 	sta WSYNC	; 37th line
 	sta HMOVE	; apply offset
@@ -375,11 +383,13 @@ DivideLoop2:
 	asl
 	asl
 ; The fine offset goes into HMP0
-	sta HMM1
+	;sta HMM1
+        sta HMP1
 ; Now let's fix the coarse position of the player, which as you
 ; remember is solely based on timing. If you rearrange any of the
 ; previous instructions, position 0 won't be exactly on the left side.
-	sta RESM1
+	;sta RESM1
+        sta RESP1
 ; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
 	sta WSYNC	; 37th line
 	sta HMOVE	; apply offset
@@ -389,7 +399,8 @@ DivideLoop2:
 CheckCollisionP1 subroutine
         ;check collisions
 ; Did the player collide with the wall?
-	bit CXM0FB
+	;bit CXM0FB
+        bit CXP0FB
         bpl NoCollisionP1
 ; Yes, load previous position
         lda Player1YPrev
@@ -413,7 +424,8 @@ NoMoveJoyP1
 CheckCollisionP2 subroutine
         ;check collisions
 ; Did the player collide with the wall?
-	bit CXM1FB
+	;bit CXM1FB
+        bit CXP1FB
         bpl NoCollisionP2
 ; Yes, load previous position
         lda Player2YPrev
