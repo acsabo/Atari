@@ -98,15 +98,15 @@ InitSystem:
         CLEAN_START   
         
         ;player position
-        lda #0
+        lda #40
         sta Player1X
-	lda #0
+	lda #12
         sta Player1Y
         
         ;player position
-        lda #0
+        lda #1
         sta Player2X
-        lda #75
+        lda #20
         sta Player2Y        
         
         ;init grid mem
@@ -147,21 +147,12 @@ Main:
 ; --------------
 ; game logic runs here.  Coming soon!
 ;===============================================================================        
-	;grid color
-        lda #$70
-        sta COLUBK
-        
-	lda #$48
-        sta COLUPF
-                       
 	;player color
         lda #$52
         sta COLUP0        
         lda #$A2
         sta COLUP1    
 
-        jsr CheckCollisionP1
-        jsr CheckCollisionP2
 
 
 ;===============================================================================
@@ -180,94 +171,95 @@ Kernel
 
         ; Set up timer (in case of bugs where we don't hit exactly)
         TIMER_SETUP 192
-        SLEEP 10 ; to make timing analysis work out
-       
-        ;from the beging over and over
+        SLEEP 2;10 ; to make timing analysis work out
         ;sta WSYNC
         
-	;reset grid
-        ldy #MaxRows
-        ldx #SpriteHeight
         
-        lda Player1Y	; NÃO ESTÁ AGINTINGO O RANGE [0-18] = 19 ROWS
-        lsr
+	;grid color
+        lda #$70
+        sta COLUBK
+        
+	lda #$48
+        sta COLUPF        
+        
+        lda Player1Y
+        lsr        
         lsr
         sta TempP1
+        
 
         lda Player2Y
         lsr
         lsr
-        sta TempP2
-        inc TempP2
+        sta TempP2        
         
-RowsHeightLoop
-         
-	sta WSYNC        
-	
-PatternChanged
-
-        lda PF0_left,y 
-        sta PF0 ; PF0 
-        
-        lda PF1_left,y 
-        sta PF1 ; PF1    
-        
-        lda PF2_left,y 
-        sta PF2 ; PF2
-               
-	SLEEP 6
-        
-        lda PF0_right,y
-        sta PF0 ; PF0 
-        
-        lda PF1_right,y
-        sta PF1 ; PF1
-        
-        lda PF2_right,y
-        sta PF2 ; PF2 
-
-        
-        dex
-        bne RowsHeightLoop  ; Branch if Not Equal to 0    
+        ldy #MaxRows	; start        
+        ;===========
+        SLEEP 18	; TRICK TO WAIT FOR THE RIGHT TIME
+PatternChanged      
 
 	;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
-	lda #2
+        lda #$F0
         cpy TempP2
         beq doDrawP2
         lda #0			; no, load the padding offset (0)        
 doDrawP2:       
 	tax	; backup para dar tempo !!! aproveitando o x já que está zerado
         
-        lda #2
+        lda #$F0
         cpy TempP1
         beq doDrawP1
         lda #0			; no, load the padding offset (0)
 doDrawP1:       
         
 	;--------------
-	stx ENAM1; enable/disable missile     
+	;enable/disable player
+        stx GRP1
         ldx #SpriteHeight
-        sta ENAM0; enable/disable missile        
+        sta GRP0 
+	jmp SkipLine        ; TO AVOID BLANK LINE
+
+RowsHeightLoop
+	sta WSYNC        
+SkipLine
+        lda PF0_left,y 
+        sta PF0 
         
-   	dey ;next grid line, if there is more
-        bmi RowsEnd            
-        jmp PatternChanged
+        lda PF1_left,y 
+        sta PF1     
+        
+        lda PF2_left,y 
+        sta PF2 
+               
+	SLEEP 6
+        
+        lda PF0_right,y
+        sta PF0
+        
+        lda PF1_right,y
+        sta PF1
+        
+        lda PF2_right,y
+        sta PF2
+        
+        dex
+        bne RowsHeightLoop  	; Branch if Not Equal to 0    
+
+   	dey  
+        bpl PatternChanged	; NEXT LINE OF THE GRID
         
 RowsEnd        
+        sta WSYNC	; NEED TO WAIT FOR THE CURRENT LINE TO COMPLETE
         lda #0
         sta PF0
         sta PF1
-        sta PF2 ; clear playfield
+        sta PF2 	; clear playfield
+        
+        sta GRP0
+        sta GRP1        
+        sta WSYNC	; add extra line to keep simetry with the top	
         sta COLUBK
         sta COLUPF
-        sta ENAM0
-        sta ENAM1
-
-        
-        lda #0			; no, load the padding offset (0)
-        sta ENAM0; enable/disable missile
-	sta ENAM1; enable/disable missile    
-        
 
         ; Wait for timer to finish
         TIMER_WAIT
@@ -293,31 +285,45 @@ RowsEnd
         sta TIM64T  ; set timer to go off in 27 scanlines
 
         ; game logic will go here
-   
+        
 
+        jsr MoveJoystick1
+        jsr MoveJoystick2
+        ;dec Player1X
+        
+        
         ;draw player 1
 	ldy Player1Y	
         ldx Player1X
-        jsr UpdateGrid                
-        ;inc Player1X
-
-        ;draw player 2
-        ldy Player2Y	
-        ldx Player2X
-        jsr UpdateGrid                
-        inc Player2X
-
-        jsr MoveJoystick
+        jsr UpdateGrid      
         
         ;update positions
        	lda Player1X	; load the counter as horizontal position
-        adc #6
-        jsr UpdatePositionP1
+        jsr UpdatePositionP1        
+	
+        ;draw player 2
+        ldy Player2Y	
+        ldx Player2X
+        jsr UpdateGrid
         
+        ;---- update player 2 position
+;        ldx Player2X
+;        cpx #156
+;        bcs StopMoving
+;        inx
+;StopMoving 
+;	stx Player2X
+        ;----
         
+        ;inc Player2X	; move player 2 ! shold never be after UpdatePosition        
         lda Player2X
-        adc #6
         jsr UpdatePositionP2
+        
+        jsr CheckCollisionP1
+        jsr CheckCollisionP2
+
+	
+        
 OSwait:
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM   ; Check the timer
@@ -326,6 +332,11 @@ OSwait:
         
         jmp Main            ; JuMP to Main
 
+;===============================================================================
+; UpdatePositionP1 subroutine
+; --------------
+;
+;===============================================================================
 UpdatePositionP1 subroutine
 ; We're going to divide the horizontal position by 15.
 ; The easy way on the 6502 is to subtract in a loop.
@@ -345,11 +356,12 @@ DivideLoop1:
 	asl
 	asl
 ; The fine offset goes into HMP0
-	sta HMM0
+        sta HMP0
 ; Now let's fix the coarse position of the player, which as you
 ; remember is solely based on timing. If you rearrange any of the
 ; previous instructions, position 0 won't be exactly on the left side.
-	sta RESM0
+	;sta RESM0
+        sta RESP0
 ; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
 	sta WSYNC	; 37th line
 	sta HMOVE	; apply offset
@@ -361,7 +373,7 @@ UpdatePositionP2 subroutine
 ; The easy way on the 6502 is to subtract in a loop.
 ; Note that this also conveniently adds 5 CPU cycles
 ; (15 TIA clocks) per iteration.
-	sta WSYNC	; 36th line
+	sta WSYNC	; 36th line        
 	sta HMCLR	; reset the old horizontal position
 DivideLoop2:
 	sbc #15		; subtract 15
@@ -375,27 +387,31 @@ DivideLoop2:
 	asl
 	asl
 ; The fine offset goes into HMP0
-	sta HMM1
+        sta HMP1
 ; Now let's fix the coarse position of the player, which as you
 ; remember is solely based on timing. If you rearrange any of the
 ; previous instructions, position 0 won't be exactly on the left side.
-	sta RESM1
+        sta RESP1
 ; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
 	sta WSYNC	; 37th line
 	sta HMOVE	; apply offset
 	rts
 
-
+;===============================================================================
+; CheckCollision
+; --------------
+;
+;===============================================================================
 CheckCollisionP1 subroutine
         ;check collisions
 ; Did the player collide with the wall?
-	bit CXM0FB
+        bit CXP0FB
         bpl NoCollisionP1
 ; Yes, load previous position
-        lda Player1YPrev
-        sta Player1Y
-        lda Player1XPrev
-        sta Player1X
+        ;lda Player1YPrev
+        ;sta Player1Y
+        ;lda Player1XPrev
+        ;sta Player1X
         
         ;Update scores
         inc ScoreP2
@@ -406,20 +422,19 @@ NoCollisionP1:
         sta Player1YPrev
         lda Player1X
         sta Player1XPrev
-        ;jsr MoveJoystick !!! no need for this?!
 NoMoveJoyP1 
 	rts
 
 CheckCollisionP2 subroutine
         ;check collisions
 ; Did the player collide with the wall?
-	bit CXM1FB
+        bit CXP1FB
         bpl NoCollisionP2
 ; Yes, load previous position
-        lda Player2YPrev
-        sta Player2Y
-        lda Player2XPrev
-        sta Player2X
+        ;lda Player2YPrev
+        ;sta Player2Y
+        ;lda Player2XPrev
+       	;sta Player2X
         
         ;Update scores
         inc ScoreP1       
@@ -430,17 +445,23 @@ NoCollisionP2:
         sta Player2YPrev
         lda Player2X
         sta Player2XPrev
-        ;jsr MoveJoystick !!! no need for this?!
 NoMoveJoyP2    
 	rts
         
+;===============================================================================
+; UpdateGrid
+; --------------
+;
+;===============================================================================
 UpdateGrid subroutine
 	tya
+        ;adc 1
         lsr
         lsr
         tay
                 
-	txa	
+	txa
+        ;adc 1	; 
 	lsr
 	lsr ; div 4
 
@@ -505,46 +526,89 @@ pf2_r:
         sta PF2_right,y	
 	rts	
         
-        ; Read joystick movement and apply to object 0
-MoveJoystick
-        ; Move vertically
-        ; (up and down are actually reversed since ypos starts at bottom)
-        ldx Player1Y
-        lda #%00100000	;Up?
-        bit SWCHA
-        bne SkipMoveUp
+;===============================================================================
+; MoveJoystick
+; --------------
+; Read joystick movement and apply to object 0
+;===============================================================================        
+; Read joystick movement and apply to object 0
+MoveJoystick1
+; Move vertically
+; (up and down are actually reversed since ypos starts at bottom)
+	ldx Player1Y
+	lda #%00100000	;Up?
+	bit SWCHA
+	bne SkipMoveUp
         cpx #1
         bcc SkipMoveUp
         dex
 SkipMoveUp
-        lda #%00010000	;Down?
-        bit SWCHA 
-        bne SkipMoveDown
+	lda #%00010000	;Down?
+	bit SWCHA 
+	bne SkipMoveDown
         cpx #72
         bcs SkipMoveDown
         inx
 SkipMoveDown
 	stx Player1Y
-	;Move horizontally
+	; Move horizontally
         ldx Player1X
 	lda #%01000000	;Left?
 	bit SWCHA
 	bne SkipMoveLeft
-        cpx #1
+        cpx #2
         bcc SkipMoveLeft
         dex
 SkipMoveLeft
 	lda #%10000000	;Right?
 	bit SWCHA 
 	bne SkipMoveRight
-	cpx #159
-	bcs SkipMoveRight
-	inx
+        cpx #156
+        bcs SkipMoveRight
+        inx
 SkipMoveRight
 	stx Player1X
 	rts
         
-
+; Read joystick movement and apply to object 0
+MoveJoystick2
+; Move vertically
+; (up and down are actually reversed since ypos starts at bottom)
+	ldx Player2Y
+	lda #%00000010	;Up?
+	bit SWCHA
+	bne SkipMoveUp2
+        cpx #1
+        bcc SkipMoveUp2
+        dex
+SkipMoveUp2
+	lda #%00000001	;Down?
+	bit SWCHA 
+	bne SkipMoveDown2
+        cpx #72
+        bcs SkipMoveDown2
+        inx
+SkipMoveDown2
+	stx Player2Y
+	; Move horizontally
+        ldx Player2X
+	lda #%00000100	;Left?
+	bit SWCHA
+	bne SkipMoveLeft2
+        cpx #2
+        bcc SkipMoveLeft2
+        dex
+SkipMoveLeft2
+	lda #%00001000	;Right?
+	bit SWCHA 
+	bne SkipMoveRight2
+        cpx #156
+        bcs SkipMoveRight2
+        inx
+SkipMoveRight2
+	stx Player2X
+	rts
+        
 ;===============================================================================
 ; free space check before DigitGfx
 ;===============================================================================
