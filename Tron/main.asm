@@ -285,44 +285,35 @@ RowsEnd
         sta TIM64T  ; set timer to go off in 27 scanlines
 
         ; game logic will go here
-        
-
+        ;reading joystick inputs
         jsr MoveJoystick1
-        jsr MoveJoystick2
-        ;dec Player1X
+        jsr MoveJoystick2        
         
+  
         
-        ;draw player 1
-	ldy Player1Y	
-        ldx Player1X
+        ;player 1
+        ;update position on the grid
+	ldy Player1Y;Player1YPrev	
+        ldx Player1XPrev
         jsr UpdateGrid      
         
         ;update positions
-       	lda Player1X	; load the counter as horizontal position
+       	lda Player1X
         jsr UpdatePositionP1        
 	
-        ;draw player 2
+        ;player 2
+        ;update position on the grid
         ldy Player2Y	
         ldx Player2X
         jsr UpdateGrid
         
-        ;---- update player 2 position
-;        ldx Player2X
-;        cpx #156
-;        bcs StopMoving
-;        inx
-;StopMoving 
-;	stx Player2X
-        ;----
-        
-        ;inc Player2X	; move player 2 ! shold never be after UpdatePosition        
+	;update positions
         lda Player2X
         jsr UpdatePositionP2
         
+        ; checking for collisions        
         jsr CheckCollisionP1
-        jsr CheckCollisionP2
-
-	
+        jsr CheckCollisionP2              
         
 OSwait:
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
@@ -414,14 +405,24 @@ CheckCollisionP1 subroutine
         ;sta Player1X
         
         ;Update scores
-        inc ScoreP2
-        jmp NoMoveJoyP1
+        ;inc ScoreP2
+        ;jmp NoMoveJoyP1
 NoCollisionP1:
 ; No collision, update previous position and move player
-        lda Player1Y
-        sta Player1YPrev
-        lda Player1X
-        sta Player1XPrev
+        ldy Player1Y
+        ;dey
+        ;dey
+        ;dey
+        ;dey
+        sty Player1YPrev
+        
+        ldy Player1X
+        dey
+        dey
+        dey
+        dey
+        ;dey
+        sty Player1XPrev
 NoMoveJoyP1 
 	rts
 
@@ -437,8 +438,8 @@ CheckCollisionP2 subroutine
        	;sta Player2X
         
         ;Update scores
-        inc ScoreP1       
-        jmp NoMoveJoyP2
+        ;inc ScoreP1       
+        ;jmp NoMoveJoyP2
 NoCollisionP2:
 ; No collision, update previous position and move player
         lda Player2Y
@@ -556,7 +557,7 @@ SkipMoveDown
 	lda #%01000000	;Left?
 	bit SWCHA
 	bne SkipMoveLeft
-        cpx #2
+        cpx #1
         bcc SkipMoveLeft
         dex
 SkipMoveLeft
