@@ -36,6 +36,8 @@
  
 SpriteHeight	equ 8 
 MaxRows		equ 18
+NDigitRows	equ 5	; number of lines of bricks
+NDR		equ NDigitRows	; abbreviation for number of brick rows
  
 ;===============================================================================
 ; Define RAM Usage
@@ -98,7 +100,7 @@ InitSystem:
         CLEAN_START   
         
         ;player position
-        lda #40
+        lda #41
         sta Player1X
 	lda #12
         sta Player1Y
@@ -108,6 +110,11 @@ InitSystem:
         sta Player2X
         lda #20
         sta Player2Y        
+        
+        ;init Score
+        lda #0
+        sta ScoreP1
+        sta ScoreP2
         
         ;init grid mem
         ldy #144
@@ -260,6 +267,77 @@ RowsEnd
         sta WSYNC	; add extra line to keep simetry with the top	
         sta COLUBK
         sta COLUPF
+        
+;===============================================================================
+; Scoreboard
+;===============================================================================
+	sta WSYNC
+
+	lda #%00000011; score mode 
+	sta CTRLPF; -> CTRLPF
+        
+        lda $A2
+        sta COLUBK
+        lda $B3
+        sta COLUPF
+
+	;-------
+
+        lda #8
+        sta ScoreP1;test
+        
+        lda #9
+        sta ScoreP2;test
+
+        
+        ;-------
+
+        ldx #4 ; digit height
+nxtDigitLine:        
+        jsr UpdateScoreLine
+        ldy #4
+nxtScanLine:
+
+	sta WSYNC        
+        lda TempP1
+        sta PF1
+        
+	SLEEP #36
+
+        lda TempP2
+        sta PF2 
+        
+        SLEEP #4
+        
+        lda #0
+        sta PF1        
+        sta PF2              
+
+        dey        
+        bne nxtScanLine
+        
+        dex
+        bpl nxtDigitLine
+        
+        ;end of digits panel
+        ;sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        
+	lda #%00000000; score mode 
+	sta CTRLPF; -> CTRLPF
+        
+        lda #0
+        sta PF0
+        sta PF1
+        sta PF2 	; clear playfield
+        
+        sta GRP0
+        sta GRP1        
+        sta WSYNC	; add extra line to keep simetry with the top	
+        sta COLUBK
+        sta COLUPF
+        
 
         ; Wait for timer to finish
         TIMER_WAIT
@@ -283,19 +361,6 @@ RowsEnd
         ; generating and adjust accordingly.
         lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
         sta TIM64T  ; set timer to go off in 27 scanlines
-
-        ; game logic will go here
-        ;reading joystick inputs
-        jsr MoveJoystick1
-        jsr MoveJoystick2        
-        
-  
-        
-        ;player 1
-        ;update position on the grid
-	ldy Player1Y;Player1YPrev	
-        ldx Player1XPrev
-        jsr UpdateGrid      
         
         ;update positions
        	lda Player1X
@@ -310,11 +375,21 @@ RowsEnd
 	;update positions
         lda Player2X
         jsr UpdatePositionP2
-        
+
         ; checking for collisions        
         jsr CheckCollisionP1
-        jsr CheckCollisionP2              
+        jsr CheckCollisionP2        
+
+        ; game logic will go here
+        ;reading joystick inputs
+        jsr MoveJoystick1
+        jsr MoveJoystick2
         
+        ;player 1
+        ;update position on the grid
+	ldy Player1Y
+        ldx Player1X
+        jsr UpdateGrid          
 OSwait:
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM   ; Check the timer
@@ -322,6 +397,46 @@ OSwait:
 
         
         jmp Main            ; JuMP to Main
+
+; Fetches bitmap data for two digits of a
+; BCD-encoded number, storing it in TempP1 and TempP2
+; FontBuf+x to FontBuf+4+x.
+UpdateScoreLine subroutine
+	;---------- PLAYER 1 SCORE
+        lda ScoreP1
+        and #$0F	; mask out the least significant digit
+	
+        sta TempP1
+        asl
+        asl        
+        adc TempP1	; multiply by 5
+        
+        stx TempP1	; jump to current line of the digit
+        adc TempP1
+        
+        tay
+        lda DigitsBitmap,y
+        ;and $0F;temporary
+        sta TempP1
+
+	;---------- PLAYER 2 SCORE
+        lda ScoreP2
+        and #$0F	; mask out the least significant digit
+	
+        sta TempP2
+        asl
+        asl        
+        adc TempP2	; multiply by 5
+        
+        stx TempP2	; jump to current line of the digit
+        adc TempP2
+        
+        tay
+        lda DigitsBitmap,y
+        ;and $0F;temporary        
+        sta TempP2
+        
+	rts
 
 ;===============================================================================
 ; UpdatePositionP1 subroutine
@@ -409,20 +524,10 @@ CheckCollisionP1 subroutine
         ;jmp NoMoveJoyP1
 NoCollisionP1:
 ; No collision, update previous position and move player
-        ldy Player1Y
-        ;dey
-        ;dey
-        ;dey
-        ;dey
-        sty Player1YPrev
-        
-        ldy Player1X
-        dey
-        dey
-        dey
-        dey
-        ;dey
-        sty Player1XPrev
+        lda Player1Y
+        sta Player1YPrev        
+        lda Player1X
+        sta Player1XPrev
 NoMoveJoyP1 
 	rts
 
@@ -465,6 +570,7 @@ UpdateGrid subroutine
         ;adc 1	; 
 	lsr
 	lsr ; div 4
+        ;
 
         cmp #20
         bpl SecondHalf
@@ -534,6 +640,22 @@ pf2_r:
 ;===============================================================================        
 ; Read joystick movement and apply to object 0
 MoveJoystick1
+
+;read buttons
+	bit INPT4 
+	bmi .SkipButton0 
+	;jsr Player0Button 
+	lda #$00
+        sta COLUPF          
+.SkipButton0 
+	bit INPT5 
+	bmi .SkipButton1 
+	;jsr Player1Button 
+	lda #$23
+        sta COLUPF          
+.SkipButton1 
+
+
 ; Move vertically
 ; (up and down are actually reversed since ypos starts at bottom)
 	ldx Player1Y
@@ -549,9 +671,11 @@ SkipMoveUp
 	bne SkipMoveDown
         cpx #72
         bcs SkipMoveDown
-        inx
+        inx        
 SkipMoveDown
 	stx Player1Y
+        ldx Player1X
+        stx Player1XPrev
 	; Move horizontally
         ldx Player1X
 	lda #%01000000	;Left?
@@ -566,9 +690,15 @@ SkipMoveLeft
 	bne SkipMoveRight
         cpx #156
         bcs SkipMoveRight
-        inx
+        inx        
 SkipMoveRight
 	stx Player1X
+        
+        dex
+        stx Player1XPrev
+        
+        ldx Player1Y
+        stx Player1YPrev        
 	rts
         
 ; Read joystick movement and apply to object 0
@@ -635,17 +765,17 @@ BitReprF2
 	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
 
 ; Bitmap pattern for digits
-DigitsBitmap ;;{w:8,h:6,count:10,brev:1};;
-        .byte $EE,$AA,$AA,$AA,$EE,$00
-        .byte $22,$22,$22,$22,$22,$00
-        .byte $EE,$22,$EE,$88,$EE,$00
-        .byte $EE,$22,$66,$22,$EE,$00
-        .byte $AA,$AA,$EE,$22,$22,$00
-        .byte $EE,$88,$EE,$22,$EE,$00
-        .byte $EE,$88,$EE,$AA,$EE,$00
-        .byte $EE,$22,$22,$22,$22,$00
-        .byte $EE,$AA,$EE,$AA,$EE,$00
-        .byte $EE,$AA,$EE,$22,$EE,$00
+DigitsBitmap 
+        .byte $EE,$AA,$AA,$AA,$EE;0
+        .byte $22,$22,$22,$22,$22;1
+        .byte $EE,$88,$EE,$22,$EE;2
+        .byte $EE,$22,$66,$22,$EE;3
+        .byte $22,$22,$EE,$AA,$AA;4
+        .byte $EE,$22,$EE,$88,$EE;5
+        .byte $EE,$AA,$EE,$88,$EE;6
+        .byte $22,$22,$22,$22,$EE;7
+        .byte $EE,$AA,$EE,$AA,$EE;8
+        .byte $EE,$22,$EE,$AA,$EE;9
 	          
 ;===============================================================================
 ; free space check before End of Cartridge
