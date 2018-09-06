@@ -273,7 +273,7 @@ RowsEnd
 ;===============================================================================
 	sta WSYNC
 
-	lda #%00000011; score mode 
+	lda #%00000010; score mode 
 	sta CTRLPF; -> CTRLPF
         
         lda $A2
@@ -283,10 +283,10 @@ RowsEnd
 
 	;-------
 
-        lda #8
+        lda #2
         sta ScoreP1;test
         
-        lda #9
+        lda #4
         sta ScoreP2;test
 
         
@@ -294,43 +294,44 @@ RowsEnd
 
         ldx #4 ; digit height
 nxtDigitLine:        
+	lda #0
+        sta PF1
+        
         jsr UpdateScoreLine
-        ldy #4
+        ldy #3
 nxtScanLine:
 
 	sta WSYNC        
         lda TempP1
         sta PF1
         
-	SLEEP #36
+	SLEEP #24
 
         lda TempP2
-        sta PF2 
+        sta PF1 
         
-        SLEEP #4
+        SLEEP #24
         
-        lda #0
-        sta PF1        
-        sta PF2              
-
         dey        
         bne nxtScanLine
         
         dex
         bpl nxtDigitLine
         
+	lda #0
+        sta PF1
+        
         ;end of digits panel
-        ;sta WSYNC
         sta WSYNC
         sta WSYNC
         
-	lda #%00000000; score mode 
+        
+	lda #%00000000; clear score mode 
 	sta CTRLPF; -> CTRLPF
         
         lda #0
         sta PF0
         sta PF1
-        sta PF2 	; clear playfield
         
         sta GRP0
         sta GRP1        
