@@ -159,8 +159,14 @@ Main:
         sta COLUP0        
         lda #$A2
         sta COLUP1    
-
-
+        
+		;line delimiter before grid
+		ldx #5
+		lda GradientColorBK,x		        
+		sta COLUBK		
+                ;sta WSYNC
+                ;sta WSYNC
+                ;sta WSYNC
 
 ;===============================================================================
 ; Kernel
@@ -179,6 +185,7 @@ Kernel
         ; Set up timer (in case of bugs where we don't hit exactly)
         TIMER_SETUP 192
         SLEEP 2;10 ; to make timing analysis work out
+        ;sta WSYNC
         ;sta WSYNC
         
         
@@ -260,6 +267,17 @@ RowsEnd
         lda #0
         sta PF0
         sta PF1
+        sta PF2 	; clear playfield        
+        sta WSYNC
+        
+        ; line delimimter after grid
+        ldx #5
+        lda GradientColorBK,x		        
+        sta COLUBK	
+
+        lda #0
+        sta PF0
+        sta PF1
         sta PF2 	; clear playfield
         
         sta GRP0
@@ -271,46 +289,60 @@ RowsEnd
 ;===============================================================================
 ; Scoreboard
 ;===============================================================================
-	sta WSYNC
+		sta WSYNC
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC
+		
+		ldx #5
+		lda GradientColorBK,x		        
+		sta COLUBK		
 
-	lda #%00000010; score mode 
-	sta CTRLPF; -> CTRLPF
+		lda #%00000010; score mode 
+		sta CTRLPF; -> CTRLPF
         
-        lda $A2
-        sta COLUBK
-        lda $B3
-        sta COLUPF
+        ;lda $A2
+        ;sta COLUBK
+        ;lda $B3
+        ;sta COLUPF
 
-	;-------
+		;-------
 
-        lda #2
+		lda #5
         sta ScoreP1;test
         
-        lda #4
+        lda #3
         sta ScoreP2;test
-
         
         ;-------
 
         ldx #4 ; digit height
 nxtDigitLine:        
-	lda #0
+		lda #0
         sta PF1
         
         jsr UpdateScoreLine
         ldy #3
 nxtScanLine:
-
-	sta WSYNC        
+		sta WSYNC
+		lda GradientColorBK,x		        
+		sta COLUBK
+		   
         lda TempP1
         sta PF1
         
-	SLEEP #24
+		SLEEP #20
 
         lda TempP2
         sta PF1 
         
-        SLEEP #24
+        SLEEP #20
         
         dey        
         bne nxtScanLine
@@ -318,16 +350,16 @@ nxtScanLine:
         dex
         bpl nxtDigitLine
         
-	lda #0
+		lda #0
         sta PF1
         
         ;end of digits panel
-        sta WSYNC
-        sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
         
         
-	lda #%00000000; clear score mode 
-	sta CTRLPF; -> CTRLPF
+		lda #%00000000; clear score mode 
+		sta CTRLPF; -> CTRLPF
         
         lda #0
         sta PF0
@@ -336,9 +368,12 @@ nxtScanLine:
         sta GRP0
         sta GRP1        
         sta WSYNC	; add extra line to keep simetry with the top	
+        sta WSYNC
         sta COLUBK
-        sta COLUPF
-        
+        ;sta COLUPF
+		;ldx #5
+		;lda GradientColorBK,x		        
+		;sta COLUBK		        
 
         ; Wait for timer to finish
         TIMER_WAIT
@@ -777,7 +812,17 @@ DigitsBitmap
         .byte $22,$22,$22,$22,$EE;7
         .byte $EE,$AA,$EE,$AA,$EE;8
         .byte $EE,$22,$EE,$AA,$EE;9
-	          
+	    
+GradientColorBK
+		.byte #$60
+		.byte #$62
+		.byte #$64
+		.byte #$66
+		.byte #$68
+		.byte #$6A
+		.byte #$6C	      
+		    
+				
 ;===============================================================================
 ; free space check before End of Cartridge
 ;===============================================================================
