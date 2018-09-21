@@ -66,8 +66,10 @@ Player2XPrev	.byte
 TempP1		.byte
 TempP2		.byte
 
-ScoreP1		.byte
-ScoreP2		.byte
+Scores		.byte
+Controls	.byte
+
+;PowerUP		.byte
 
 PF0_left	ds 19
 PF1_left	ds 19
@@ -75,9 +77,7 @@ PF2_left	ds 19
 PF0_right	ds 19
 PF1_right	ds 19
 PF2_right	ds 19
-
-;Player1Score	.byte
-;Player2core	.byte            
+         
 	       
 ;===============================================================================
 ; Define Start of Cartridge
@@ -104,20 +104,27 @@ InitSystem:
         sta Player1X
         lda #152
         sta Player1XPrev
-	lda #12
+        
+	lda #36
         sta Player1Y
         sta Player1YPrev
         
         ;player position
-        lda #1
+        lda #5
         sta Player2X
-        lda #20
-        sta Player2Y        
+        lda #4
+        sta Player2XPrev
+        
+        lda #36
+        sta Player2Y
+        sta Player2YPrev
         
         ;init Score
-        lda #0
-        sta ScoreP1
-        sta ScoreP2
+        lda #$00
+        sta Scores
+        lda #%01001000; P1 goes left P2 goes right
+        sta Controls
+        ;sta ScoreP2
         
         ;init grid mem
         ldy #144
@@ -127,17 +134,14 @@ initGrid:
         dey
         bne initGrid    
         
-        
         ;test to be removed
-        ldy #79
-        lda #6
-        sta PF0_left,y	
+        ;ldy #79
+        ;lda #6
+        ;sta PF0_left,y	
         
         ;ldy #22
         ;lda #$86
         ;sta PF0_left,y	
-
-        
         
 ;===============================================================================
 ; Main Program Loop
@@ -168,19 +172,17 @@ Main:
 ; --------------
 ; game logic runs here.  Coming soon!
 ;===============================================================================        
-	;player color
+        ;player color
         lda #$52
         sta COLUP0        
         lda #$A2
         sta COLUP1    
         
-		;line delimiter before grid
-		ldx #5
-		lda GradientColorBK,x		        
-		sta COLUBK		
-                ;sta WSYNC
-                ;sta WSYNC
-                ;sta WSYNC
+        ;line delimiter before grid
+        ldx #5
+        lda GradientColorBK,x		        
+        sta COLUBK		
+
 
 ;===============================================================================
 ; Kernel
@@ -199,9 +201,6 @@ Kernel
         ; Set up timer (in case of bugs where we don't hit exactly)
         TIMER_SETUP 192
         SLEEP 2;10 ; to make timing analysis work out
-        ;sta WSYNC
-        ;sta WSYNC
-        
         
 	;grid color
         lda #$70
@@ -304,38 +303,23 @@ RowsEnd
 ;===============================================================================
 ; Scoreboard
 ;===============================================================================
-		sta WSYNC
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC
-		
-		ldx #5
-		lda GradientColorBK,x		        
-		sta COLUBK		
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
 
-		lda #%00000010; score mode 
-		sta CTRLPF; -> CTRLPF
-        
-        ;lda $A2
-        ;sta COLUBK
-        ;lda $B3
-        ;sta COLUPF
+        ldx #5
+        lda GradientColorBK,x		        
+        sta COLUBK		
 
-		;-------
-
-		;lda #5
-        ;sta ScoreP1;test
-        
-        ;lda #3
-        ;sta ScoreP2;test
-        
-        ;-------
+        lda #%00000010; score mode 
+        sta CTRLPF
 
         ldx #4 ; digit height
 nxtDigitLine:        
@@ -345,14 +329,14 @@ nxtDigitLine:
         jsr UpdateScoreLine
         ldy #3
 nxtScanLine:
-		sta WSYNC
-		lda GradientColorBK,x		        
-		sta COLUBK
-		   
+        sta WSYNC
+        lda GradientColorBK,x		        
+        sta COLUBK
+
         lda TempP1
         sta PF1
         
-		SLEEP #20
+	SLEEP #20
 
         lda TempP2
         sta PF1 
@@ -365,16 +349,12 @@ nxtScanLine:
         dex
         bpl nxtDigitLine
         
-		lda #0
+	lda #0
         sta PF1
         
         ;end of digits panel
-        ;sta WSYNC
-        ;sta WSYNC
-        
-        
-		lda #%00000000; clear score mode 
-		sta CTRLPF; -> CTRLPF
+        lda #%00000000; clear score mode 
+        sta CTRLPF; -> CTRLPF
         
         lda #0
         sta PF0
@@ -385,10 +365,6 @@ nxtScanLine:
         sta WSYNC	; add extra line to keep simetry with the top	
         sta WSYNC
         sta COLUBK
-        ;sta COLUPF
-		;ldx #5
-		;lda GradientColorBK,x		        
-		;sta COLUBK		        
 
         ; Wait for timer to finish
         TIMER_WAIT
@@ -412,42 +388,53 @@ nxtScanLine:
         ; generating and adjust accordingly.
         lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
         sta TIM64T  ; set timer to go off in 27 scanlines
-        
-        ;player 2
-        ;update position on the grid
-        ;ldy Player2Y	
-        ;ldx Player2X
-        ;jsr UpdateGrid
 
-	;update positions
-        ;lda Player2X
-        ;jsr UpdatePositionP2     
-        
         ;update positions
-       	lda Player1X;Player1XPrev;;;;Player1XPrev;;;
+       	lda Player1X
         jsr UpdatePositionP1            
-        
-        ; checking for collisions        
         jsr CheckCollisionP1
-        ;jsr CheckCollisionP2           
-        
-        ; game logic will go here
-        ;reading joystick inputs
-        jsr MoveJoystick1          
-        ;jsr MoveJoystick2
-        
-        ;player 1
-        ;update position on the grid
+        jsr MoveJoystick1
+
 	ldy Player1YPrev;Player1Y
         ldx Player1XPrev;Player1X
-        jsr UpdateGrid              
+        jsr UpdateGrid       
+
+
+        sta WSYNC
+        sta HMCLR	; reset the old horizontal position
+        sta WSYNC
+	;-----------------
+        
+        ;jsr CheckCollisionP2	
+	;ldy Player2YPrev
+        ;ldx Player2XPrev
+        ;jsr UpdateGrid                
+        ;jsr MoveJoystick2
+        ;lda Player2X        
+        ;jsr UpdatePositionP2
+        
+;===============================================================================
+; CHECKING SWITCHES
+;===============================================================================
+
+ProcessSwitches:
+        lda SWCHB       ; load in the state of the switches
+        lsr             ; D0 is now in C
+        bcs OSwait    	; if D0 was on, the RESET switch was not held        
+	jmp InitSystem
+        
+        
+;===============================================================================
+; Restaring game loop
+;===============================================================================
+
         
 OSwait:
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM   ; Check the timer
         bne OSwait  ; Branch if its Not Equal to 0
 
-        
+	
         jmp Main            ; JuMP to Main
 
 ; Fetches bitmap data for two digits of a
@@ -455,7 +442,7 @@ OSwait:
 ; FontBuf+x to FontBuf+4+x.
 UpdateScoreLine subroutine
 	;---------- PLAYER 1 SCORE
-        lda ScoreP1
+        lda Scores
         and #$0F	; mask out the least significant digit
 	
         sta TempP1
@@ -472,7 +459,7 @@ UpdateScoreLine subroutine
         sta TempP1
 
 	;---------- PLAYER 2 SCORE
-        lda ScoreP2
+        lda Scores
         and #$0F	; mask out the least significant digit
 	
         sta TempP2
@@ -518,7 +505,6 @@ DivideLoop1:
 ; Now let's fix the coarse position of the player, which as you
 ; remember is solely based on timing. If you rearrange any of the
 ; previous instructions, position 0 won't be exactly on the left side.
-	;sta RESM0
         sta RESP0
 ; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
 	sta WSYNC	; 37th line
@@ -561,29 +547,170 @@ DivideLoop2:
 ;
 ;===============================================================================
 
-
-CheckCollisionP2 subroutine
+CheckCollisionP1 subroutine
+	
         ;check collisions
 ; Did the player collide with the wall?
-        bit CXP1FB
-        bpl NoCollisionP2
-; Yes, load previous position
-        ;lda Player2YPrev
-        ;sta Player2Y
-        ;lda Player2XPrev
-       	;sta Player2X
+        ;lda #%10000000
+        bit CXP0FB
+        bpl PossibleCollisionP1        
+        sta CXCLR	
         
+        ;if collision in Y
+        lda Player1Y
+        sec
+        sbc Player1YPrev
+        cmp #4
+        bcs CollisionP1         
+        
+        ;or if collision in X
+        lda Player1X
+        sec
+        sbc Player1XPrev
+        cmp #6
+        bpl CollisionP1  
+        ;or X < PrevX
+        lda Player1XPrev
+        sec
+        sbc Player1X
+        cmp #4
+        bpl CollisionP1 
+        ;inc ScoreP1
+                
+        rts
+        
+CollisionP1:	
+
         ;Update scores
-        ;inc ScoreP1       
-        ;jmp NoMoveJoyP2
-NoCollisionP2:
-; No collision, update previous position and move player
+        inc Scores
+        
+PossibleCollisionP1:
+	
+	;if moving to the right
+        lda Player1X
+        sec
+        sbc Player1XPrev
+        cmp #7
+        bcc NoCollisionAtAll  
+        
+	;if moving to the left	
+        lda Player1XPrev
+        sec
+        sbc Player1X
+        cmp #4
+        bpl CollisionLeftP1
+        
+CollisionRightP1:
+	lda Player1X
+        lsr
+        lsr
+        asl
+        asl
+	sta Player1XPrev ; rounded X collision    
+	jmp NoCollisionAtAll
+        
+CollisionLeftP1:
+
+	lda Player1X
+        lsr
+        lsr
+        asl
+        asl
+        adc #4;needed when moving to the left        
+	sta Player1XPrev ; rounded X collision   
+        
+NoCollisionAtAll:      
+
+	lda Player1Y
+        lsr
+        lsr
+        asl
+        asl        
+        sta Player1YPrev
+        rts
+
+
+CheckCollisionP2 subroutine
+	
+        ;check collisions
+; Did the player collide with the wall?
+        ;lda #%10000000
+        bit CXP1FB
+        bpl PossibleCollisionP2        
+        sta CXCLR	
+        
+        ;if collision in Y
         lda Player2Y
-        sta Player2YPrev
+        sec
+        sbc Player2YPrev
+        cmp #4
+        bcs CollisionP2
+        
+        ;or if collision in X
         lda Player2X
-        sta Player2XPrev
-NoMoveJoyP2    
-	rts
+        sec
+        sbc Player2XPrev
+        cmp #6
+        bpl CollisionP2
+        ;or X < PrevX
+        lda Player2XPrev
+        sec
+        sbc Player2X
+        cmp #4
+        bpl CollisionP2
+        ;inc ScoreP1
+                
+        rts
+        
+CollisionP2:	
+
+        ;Update scores
+        inc Scores
+        
+PossibleCollisionP2:
+	
+	;if moving to the right
+        lda Player2X
+        sec
+        sbc Player2XPrev
+        cmp #7
+        bcc NoCollisionAtAll2  
+        
+	;if moving to the left	
+        lda Player2XPrev
+        sec
+        sbc Player2X
+        cmp #4
+        bpl CollisionLeftP2
+        
+CollisionRightP2:
+	lda Player2X
+        lsr
+        lsr
+        asl
+        asl
+	sta Player2XPrev ; rounded X collision    
+	jmp NoCollisionAtAll2
+        
+CollisionLeftP2:
+
+	lda Player2X
+        lsr
+        lsr
+        asl
+        asl
+        adc #4;needed when moving to the left        
+	sta Player2XPrev ; rounded X collision   
+        
+NoCollisionAtAll2:      
+
+	lda Player2Y
+        lsr
+        lsr
+        asl
+        asl        
+        sta Player2YPrev
+        rts
         
 ;===============================================================================
 ; UpdateGrid
@@ -692,7 +819,6 @@ MoveJoystick1
         sta Player1XPrev
         adc #1
         sta Player1X        
-        
         ;---        
         rts
 SkipMoveUp
@@ -712,8 +838,7 @@ SkipMoveUp
         asl
         sta Player1XPrev
         adc #1
-        sta Player1X  
-        
+        sta Player1X
         ;---        
         rts        
 SkipMoveDown
@@ -772,13 +897,39 @@ MoveJoystick2
         cpx #1
         bcc SkipMoveUp2
         dex
+        
+        stx Player2Y
+        ;round X position
+        lda Player2X
+        lsr
+        lsr
+        asl
+        asl        
+        sta Player2XPrev
+        adc #1
+        sta Player2X        
+        ;---        
+        rts
 SkipMoveUp2
 	lda #%00000001	;Down?
 	bit SWCHA 
 	bne SkipMoveDown2
         cpx #72
         bcs SkipMoveDown2
-        inx
+        inx        
+        
+        stx Player2Y
+        ;round X position
+        lda Player2X
+        lsr
+        lsr
+        asl
+        asl
+        sta Player2XPrev
+        adc #1
+        sta Player2X
+        ;---        
+        rts        
 SkipMoveDown2
 	stx Player2Y
 	; Move horizontally
@@ -789,99 +940,40 @@ SkipMoveDown2
         cpx #2
         bcc SkipMoveLeft2
         dex
+        
+        stx Player2X
+        ;round Y position
+        lda Player2Y
+        lsr
+        lsr
+        asl
+        asl
+        ;adc #1
+        sta Player2Y
+        ;---        
+        rts         
 SkipMoveLeft2
 	lda #%00001000	;Right?
 	bit SWCHA 
 	bne SkipMoveRight2
         cpx #157
         bcs SkipMoveRight2
-        inx
+        inx        
+        
+        stx Player2X
+        ;round Y position
+        lda Player2Y
+        lsr
+        lsr
+        asl
+        asl
+        ;adc #1
+        sta Player2Y
+        ;---        
+        ;rts          
 SkipMoveRight2
-	stx Player2X
+	;stx Player1X   
 	rts
-;--------------------------------------------------------------        
-CheckCollisionP1 subroutine
-	
-        ;check collisions
-; Did the player collide with the wall?
-        lda #%10000000
-        bit CXP0FB
-        bpl PossibleCollisionP1        
-        sta CXCLR	
-        
-        ;if collision in Y
-        lda Player1Y
-        sec
-        sbc Player1YPrev
-        cmp #4
-        bcs CollisionP1         
-        
-        ;or if collision in X
-        lda Player1X
-        sec
-        sbc Player1XPrev
-        cmp #6
-        bpl CollisionP1  
-        ;or X < PrevX
-        lda Player1XPrev
-        sec
-        sbc Player1X
-        cmp #4
-        bpl CollisionP1 
-        ;inc ScoreP1
-                
-        rts
-        
-CollisionP1:	
-
-        ;Update scores
-        inc ScoreP2        
-        
-PossibleCollisionP1:
-	
-	;if moving to the right
-        lda Player1X
-        sec
-        sbc Player1XPrev
-        cmp #7
-        bcc NoCollisionAtAll  
-        
-	;if moving to the left	
-        lda Player1XPrev
-        sec
-        sbc Player1X
-        cmp #4
-        bpl CollisionLeftP1
-        
-CollisionRightP1:
-	lda Player1X
-        lsr
-        lsr
-        asl
-        asl
-	sta Player1XPrev ; rounded X collision    
-	jmp NoCollisionAtAll
-        
-CollisionLeftP1:
-
-	lda Player1X
-        lsr
-        lsr
-        asl
-        asl
-        adc #4;needed when moving to the left        
-	sta Player1XPrev ; rounded X collision   
-        
-NoCollisionAtAll:      
-
-	lda Player1Y
-        lsr
-        lsr
-        asl
-        asl        
-        sta Player1YPrev
-        rts
-
      
 ;===============================================================================
 ; free space check before DigitGfx
@@ -921,13 +1013,13 @@ DigitsBitmap
         .byte $EE,$22,$EE,$AA,$EE;9
 	    
 GradientColorBK
-		.byte #$60
-		.byte #$62
-		.byte #$64
-		.byte #$66
-		.byte #$68
-		.byte #$6A
-		.byte #$6C	      
+        .byte #$60
+        .byte #$62
+        .byte #$64
+        .byte #$66
+        .byte #$68
+        .byte #$6A
+        .byte #$6C	      
 		    
 				
 ;===============================================================================
