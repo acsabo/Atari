@@ -50,10 +50,6 @@ NDR		equ NDigitRows	; abbreviation for number of brick rows
     ; RAM starts at $80
         ORG $80             
 
-
-Scores		.byte
-Controls	.byte
-
     ; coming soon!
 Player1X	.byte
 Player1Y	.byte
@@ -70,14 +66,17 @@ Player2XPrev	.byte
 TempP1		.byte
 TempP2		.byte
 
+Scores		.byte
+Controls	.byte
+
 ;PowerUP		.byte
+
 PF0_left	ds 19
 PF1_left	ds 19
 PF2_left	ds 19
 PF0_right	ds 19
 PF1_right	ds 19
 PF2_right	ds 19
-
          
 	       
 ;===============================================================================
@@ -100,11 +99,10 @@ InitSystem:
     	; it sets all RAM, TIA registers and CPU registers to 0
         CLEAN_START   
         
-        
         ;player position
-        lda #8
+        lda #0
         sta Player1X
-        lda #8
+        lda #0
         sta Player1XPrev
         
 	lda #36
@@ -112,12 +110,12 @@ InitSystem:
         sta Player1YPrev
         
         ;player position
-        lda #155
+        lda #0
         sta Player2X
-        lda #152
+        lda #0
         sta Player2XPrev
         
-        lda #36
+        lda #16
         sta Player2Y
         sta Player2YPrev
         
@@ -129,12 +127,21 @@ InitSystem:
         ;sta ScoreP2
         
         ;init grid mem
-        ldy #113
+        ldy #144
         lda #$00
 initGrid:
 	sta PF0_left,y	
         dey
         bne initGrid    
+        
+        ;test to be removed
+        ;ldy #79
+        ;lda #6
+        ;sta PF0_left,y	
+        
+        ;ldy #22
+        ;lda #$86
+        ;sta PF0_left,y	
         
 ;===============================================================================
 ; Main Program Loop
@@ -176,6 +183,7 @@ Main:
         lda GradientColorBK,x		        
         sta COLUBK		
 
+
 ;===============================================================================
 ; Kernel
 ; ------
@@ -195,10 +203,10 @@ Kernel
         SLEEP 2;10 ; to make timing analysis work out
         
 	;grid color
-        lda #$70
+        lda #$33
         sta COLUBK
         
-	lda #$48
+	lda #$60
         sta COLUPF        
         
         lda Player1Y
@@ -381,19 +389,28 @@ nxtScanLine:
         lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
         sta TIM64T  ; set timer to go off in 27 scanlines
 
-
-        jsr MoveJoystick1
-        jsr MoveJoystick2
-        
         ;update positions
+       	;lda Player1X
+        ;jsr UpdatePositionP1        
+
+       	;lda Player2X
+        ;jsr UpdatePositionP2
+        ;-------------------
+        sta HMCLR	; reset the old horizontal position
+        
         lda Player1X
         ldx #0
-        jsr UpdatePosition       
-        
+        jsr SetHorizPos
         lda Player2X
-        ldX #1
-        jsr UpdatePosition       
-        
+        ldx #1
+        jsr SetHorizPos     
+        sta WSYNC
+        sta HMOVE	; gotta apply HMOVE        
+        ;-------------------
+
+        jsr CheckCollisionP1
+        jsr CheckCollisionP2
+
 
 	ldy Player1YPrev;Player1Y
         ldx Player1XPrev;Player1X
@@ -401,17 +418,19 @@ nxtScanLine:
 
 	ldy Player2YPrev;Player1Y
         ldx Player2XPrev;Player1X
-        jsr UpdateGrid    
+        jsr UpdateGrid       
+   
+        jsr MoveJoystick1
+        jsr MoveJoystick2
         
-        jsr CheckCollisionP1
-        ;jsr CheckCollisionP2
-
-
-
-
         
-        ;---
-        sta CXCLR; clear collisions	
+        ;jsr CheckCollisionP2	
+	;ldy Player2YPrev
+        ;ldx Player2XPrev
+        ;jsr UpdateGrid                
+        ;jsr MoveJoystick2
+        ;lda Player2X        
+        ;jsr UpdatePositionP2
         
 ;===============================================================================
 ; CHECKING SWITCHES
@@ -436,6 +455,22 @@ OSwait:
 
 	
         jmp Main            ; JuMP to Main
+        
+SetHorizPos
+	sta WSYNC	; start a new line
+        bit 0		; waste 3 cycles
+	sec		; set carry flag
+DivideLoop
+	sbc #15		; subtract 15
+	bcs DivideLoop	; branch until negative
+	eor #7		; calculate fine offset
+	asl
+	asl
+	asl
+	asl
+	sta RESP0,x	; fix coarse position
+	sta HMP0,x	; set fine offset
+	rts		; return to caller        
 
 ; Fetches bitmap data for two digits of a
 ; BCD-encoded number, storing it in TempP1 and TempP2
@@ -477,71 +512,105 @@ UpdateScoreLine subroutine
         
 	rts
 
-
 ;===============================================================================
-; UpdatePosition subroutine
+; UpdatePositionP1 subroutine
 ; --------------
 ;
 ;===============================================================================
-; Sets the horizontal position of an object.
-; The X register contains the index of the desired object:
-;  X=0: player 0
-;  X=1: player 1
-;  X=2: missile 0
-;  X=3: missile 1
-;  X=4: ball
-; This routine does a WSYNC both before and after, followed by
-; a HMOVE and HMCLR. So it takes two scanlines to complete.
-UpdatePosition subroutine
-        sta WSYNC	; start a new line
-        nop
-        sec		; set carry flag
-DivideLoop
+
+
+UpdatePositionP1 subroutine
+; We're going to divide the horizontal position by 15.
+; The easy way on the 6502 is to subtract in a loop.
+; Note that this also conveniently adds 5 CPU cycles
+; (15 TIA clocks) per iteration.
+	sta WSYNC	; 36th line
+	sta HMCLR	; reset the old horizontal position
+DivideLoop1:
 	sbc #15		; subtract 15
-	bcs DivideLoop	; branch until negative
-	eor #7		; calculate fine offset
-        asl
-        asl
-        asl
-        asl
-        sta RESP0,x	; fix coarse position
-        sta HMP0,x	; set fine offset
-        sta WSYNC
-        sta HMOVE	; apply the previous fine position(s)
-	sta HMCLR	; reset the old horizontal position(s)
-        rts		; return to caller 
+	bcs DivideLoop1	; branch until negative
+; A now contains (the remainder - 15).
+; We'll convert that into a fine adjustment, which has
+; the range -8 to +7.
+	eor #7
+	asl		; HMOVE only uses the top 4 bits, so shift by 4
+	asl
+	asl
+	asl
+; The fine offset goes into HMP0
+        sta HMP0
+; Now let's fix the coarse position of the player, which as you
+; remember is solely based on timing. If you rearrange any of the
+; previous instructions, position 0 won't be exactly on the left side.
+        sta RESP0
+; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
+	sta WSYNC	; 37th line
+	sta HMOVE	; apply offset
+	rts
+
+
+UpdatePositionP2 subroutine
+; We're going to divide the horizontal position by 15.
+; The easy way on the 6502 is to subtract in a loop.
+; Note that this also conveniently adds 5 CPU cycles
+; (15 TIA clocks) per iteration.
+	sta WSYNC	; 36th line                
+        sta WSYNC	; 36th line        
+	sta HMCLR	; reset the old horizontal position
+DivideLoop2:
+	sbc #15		; subtract 15
+	bcs DivideLoop2	; branch until negative
+; A now contains (the remainder - 15).
+; We'll convert that into a fine adjustment, which has
+; the range -8 to +7.
+	eor #7
+	asl		; HMOVE only uses the top 4 bits, so shift by 4
+	asl
+	asl
+	asl
+; The fine offset goes into HMP0
+        sta HMP1
+; Now let's fix the coarse position of the player, which as you
+; remember is solely based on timing. If you rearrange any of the
+; previous instructions, position 0 won't be exactly on the left side.
+        sta RESP1
+; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
+	sta WSYNC	; 37th line
+	sta HMOVE	; apply offset
+	rts
 
 ;===============================================================================
 ; CheckCollision
 ; --------------
 ;
 ;===============================================================================
-
 CheckCollisionP1 subroutine
+	
         ;check collisions
-	; Did the player collide with the wall?
+; Did the player collide with the wall?
+        ;lda #%10000000
         bit CXP0FB
         bpl PossibleCollisionP1        
-                        
+        sta CXCLR	
+        
         ;if collision in Y
         lda Player1Y
         sec
         sbc Player1YPrev
         cmp #4
-        bcs CollisionP1
+        bcs CollisionP1         
         
         ;or if collision in X
         lda Player1X
         sec
         sbc Player1XPrev
-        cmp #7;8
-        bpl CollisionP1 
-	;inc Scores
+        cmp #5
+        bpl CollisionP1  
         ;or X < PrevX
         lda Player1XPrev
         sec
         sbc Player1X
-        cmp #4
+        cmp #5
         bpl CollisionP1 
                 
         rts
@@ -549,48 +618,7 @@ CheckCollisionP1 subroutine
 CollisionP1:	
 
         ;Update scores
-        inc Scores
-        
-        rts
-        
-        lda #3;#$00;#%00000111
-	and Scores
-        sta Scores
-	
-	;--------------- RESET PLAYFIELD
-        ;player position
-        ;player position
-        lda #7
-        sta Player1X
-        lda #4
-        sta Player1XPrev
-        
-	lda #36
-        sta Player1Y
-        sta Player1YPrev
-        
-        ;player position
-        lda #155
-        sta Player2X
-        lda #152
-        sta Player2XPrev
-        
-        lda #36
-        sta Player2Y
-        sta Player2YPrev
-
-        lda #%01001000; P1 goes left P2 goes right
-        sta Controls
-
-        ;init grid mem
-        ldy #113
-        lda #$00
-initGrid2:
-	sta PF0_left,y	
-        dey
-        bne initGrid2
-        ;----
-	rts
+        inc Scores        
         
 PossibleCollisionP1:
 	
@@ -598,40 +626,34 @@ PossibleCollisionP1:
         lda Player1X
         sec
         sbc Player1XPrev
-        cmp #9
+        cmp #6
         bcc NoCollisionAtAll  
-         
+                
 	;if moving to the left	
         lda Player1XPrev
         sec
         sbc Player1X
-        cmp #4
+        cmp #5
         bpl CollisionLeftP1
         
 CollisionRightP1:
-	
+	     
 	lda Player1X
         lsr
         lsr
         asl
-        asl
-        sec
-        sbc #4
+        asl        
 	sta Player1XPrev ; rounded X collision    
-	jmp NoCollisionAtAll        
+	jmp NoCollisionAtAll
         
 CollisionLeftP1:
-
+	      
 	lda Player1X
+        adc #4 ;needed when moving to the left        
         lsr
         lsr
         asl
         asl
-        clc
-        adc #5
-        ;sec
-        ;sbc #1
-        ;adc #4;needed when moving to the left        
 	sta Player1XPrev ; rounded X collision   
         
 NoCollisionAtAll:      
@@ -644,14 +666,15 @@ NoCollisionAtAll:
         sta Player1YPrev
         rts
 
-;------------------------------------
+;-----------------
 CheckCollisionP2 subroutine
 	
         ;check collisions
 ; Did the player collide with the wall?
         ;lda #%10000000
         bit CXP1FB
-        bpl PossibleCollisionP2                
+        bpl PossibleCollisionP2
+        sta CXCLR	
         
         ;if collision in Y
         lda Player2Y
@@ -664,92 +687,56 @@ CheckCollisionP2 subroutine
         lda Player2X
         sec
         sbc Player2XPrev
-        cmp #6
+        cmp #5
         bpl CollisionP2
         ;or X < PrevX
         lda Player2XPrev
         sec
         sbc Player2X
-        cmp #4
+        cmp #5
         bpl CollisionP2
-        ;inc ScoreP1
                 
         rts
         
-CollisionP2:	
+CollisionP2:
 
         ;Update scores
-        inc Scores
-        lda #%00000111
-	and Scores
-        sta Scores
-	
-	;--------------- RESET PLAYFIELD
-        ;player position
-        lda #153
-        sta Player1X
-        lda #152
-        sta Player1XPrev
+        inc Scores        
         
-	lda #36
-        sta Player1Y
-        sta Player1YPrev
-        
-        ;player position
-        lda #5
-        sta Player2X
-        lda #4
-        sta Player2XPrev
-        
-        lda #36
-        sta Player2Y
-        sta Player2YPrev        
-
-        lda #%01001000; P1 goes left P2 goes right
-        sta Controls
-
-        ;init grid mem
-        ldy #113
-        lda #$00
-initGridP2:
-	sta PF0_left,y	
-        dey
-        bne initGridP2
-        ;----
-	rts
 PossibleCollisionP2:
 	
 	;if moving to the right
         lda Player2X
         sec
         sbc Player2XPrev
-        cmp #7
-        bcc NoCollisionAtAll2  
-        
+        cmp #6
+        bcc NoCollisionAtAll2
+                
 	;if moving to the left	
         lda Player2XPrev
         sec
         sbc Player2X
-        cmp #4
+        cmp #5
         bpl CollisionLeftP2
         
 CollisionRightP2:
+	     
 	lda Player2X
         lsr
         lsr
         asl
-        asl
+        asl        
 	sta Player2XPrev ; rounded X collision    
 	jmp NoCollisionAtAll2
         
 CollisionLeftP2:
-
+	      
 	lda Player2X
+        adc #4 ;needed when moving to the left        
         lsr
         lsr
         asl
         asl
-        adc #4;needed when moving to the left        
 	sta Player2XPrev ; rounded X collision   
         
 NoCollisionAtAll2:      
@@ -761,7 +748,7 @@ NoCollisionAtAll2:
         asl        
         sta Player2YPrev
         rts
-        
+
 ;===============================================================================
 ; UpdateGrid
 ; --------------
@@ -847,11 +834,12 @@ pf2_r:
 ; --------------
 ; Read joystick movement and apply to object 0
 ;===============================================================================        
+; Read joystick movement and apply to object 0
 MoveJoystick1
 ; Move vertically
 ; (up and down are actually reversed since ypos starts at bottom)
 	ldx Player1Y
-	lda #%00100000	;DONW?
+	lda #%00100000	;Down?
 	bit SWCHA
 	bne SkipMoveUp
         cpx #1
@@ -860,6 +848,13 @@ MoveJoystick1
         
         stx Player1Y
         ;round X position
+        lda Player1X        
+        lsr
+        lsr
+        asl
+        asl    
+        sta Player1X 
+        sta Player1XPrev
         ;---        
         rts
 SkipMoveUp
@@ -872,6 +867,13 @@ SkipMoveUp
         
         stx Player1Y
         ;round X position
+        lda Player1X        
+        lsr
+        lsr
+        asl
+        asl
+        sta Player1X 
+        sta Player1XPrev
         ;---        
         rts        
 SkipMoveDown
@@ -881,7 +883,7 @@ SkipMoveDown
 	lda #%01000000	;Left?
 	bit SWCHA
 	bne SkipMoveLeft
-        cpx #2
+        cpx #1
         bcc SkipMoveLeft
         dex
         
@@ -892,15 +894,15 @@ SkipMoveDown
         ;lsr
         ;asl
         ;asl
-        ;adc #1
         ;sta Player1Y
+        ;sta Player1YPrev
         ;---        
         rts         
 SkipMoveLeft
 	lda #%10000000	;Right?
 	bit SWCHA 
 	bne SkipMoveRight
-        cpx #157
+        cpx #156
         bcs SkipMoveRight
         inx        
         
@@ -911,21 +913,20 @@ SkipMoveLeft
         ;lsr
         ;asl
         ;asl
-        ;adc #1
         ;sta Player1Y
+        ;sta Player1YPrev
         ;---        
         ;rts          
 SkipMoveRight	
 	;stx Player1X   
 	rts
-
-;-------------------------------------------------        
+        
 ; Read joystick movement and apply to object 0
 MoveJoystick2
 ; Move vertically
 ; (up and down are actually reversed since ypos starts at bottom)
 	ldx Player2Y
-	lda #%00000010	;Up?
+	lda #%00000010	;Down?
 	bit SWCHA
 	bne SkipMoveUp2
         cpx #1
@@ -934,18 +935,17 @@ MoveJoystick2
         
         stx Player2Y
         ;round X position
-        lda Player2X
+        lda Player2X        
         lsr
         lsr
         asl
-        asl        
+        asl    
+        sta Player2X 
         sta Player2XPrev
-        adc #3
-        sta Player2X        
         ;---        
         rts
 SkipMoveUp2
-	lda #%00000001	;Down?
+	lda #%00000001	;UP?
 	bit SWCHA 
 	bne SkipMoveDown2
         cpx #72
@@ -954,14 +954,13 @@ SkipMoveUp2
         
         stx Player2Y
         ;round X position
-        lda Player2X
+        lda Player2X        
         lsr
         lsr
         asl
         asl
+        sta Player2X 
         sta Player2XPrev
-        adc #3
-        sta Player2X
         ;---        
         rts        
 SkipMoveDown2
@@ -971,41 +970,41 @@ SkipMoveDown2
 	lda #%00000100	;Left?
 	bit SWCHA
 	bne SkipMoveLeft2
-        cpx #4
+        cpx #1
         bcc SkipMoveLeft2
         dex
         
         stx Player2X
         ;round Y position
-        lda Player2Y
-        lsr
-        lsr
-        asl
-        asl
-        ;adc #1
-        sta Player2Y
+        ;lda Player1Y
+        ;lsr
+        ;lsr
+        ;asl
+        ;asl
+        ;sta Player1Y
+        ;sta Player1YPrev
         ;---        
         rts         
 SkipMoveLeft2
 	lda #%00001000	;Right?
 	bit SWCHA 
 	bne SkipMoveRight2
-        cpx #159
+        cpx #156
         bcs SkipMoveRight2
         inx        
         
         stx Player2X
         ;round Y position
-        lda Player2Y
-        lsr
-        lsr
-        asl
-        asl
-        ;adc #1
-        sta Player2Y
+        ;lda Player1Y
+        ;lsr
+        ;lsr
+        ;asl
+        ;asl
+        ;sta Player1Y
+        ;sta Player1YPrev
         ;---        
         ;rts          
-SkipMoveRight2
+SkipMoveRight2	
 	;stx Player1X   
 	rts
      
