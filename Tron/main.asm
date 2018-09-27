@@ -309,12 +309,12 @@ RowsEnd
         sta WSYNC
         sta WSYNC
         sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
 
         ldx #5
         lda GradientColorBK,x		        
@@ -324,35 +324,33 @@ RowsEnd
         sta CTRLPF
 
         ldx #4 ; digit height
-nxtDigitLine:        
+nxtDigitLine:                
 	lda #0
         sta PF1
-        
         jsr UpdateScoreLine
-        ldy #3
+        ldy #4
 nxtScanLine:
+        lda TempP0        
         sta WSYNC
-        lda GradientColorBK,x		        
-        sta COLUBK
-
-        lda TempP0
         sta PF1
         
-	SLEEP #20
-
-        lda TempP1
-        sta PF1 
+        lda GradientColorBK,x		        
+        sta COLUBK
         
-        SLEEP #20
+        SLEEP #26
+        
+        lda TempP1
+        sta PF1
         
         dey        
         bne nxtScanLine
         
+        SLEEP #8
+
         dex
         bpl nxtDigitLine
         
-	lda #0
-        sta PF1
+        sta WSYNC
         
         ;end of digits panel
         lda #%00000000; clear score mode 
@@ -476,37 +474,42 @@ DivideLoop
 ; FontBuf+x to FontBuf+4+x.
 UpdateScoreLine subroutine
 	;---------- PLAYER 1 SCORE
-        lda Scores
+        lda Scores        
         and #$0F	; mask out the least significant digit
-	
+        
         sta TempP0
         asl
         asl        
         adc TempP0	; multiply by 5
         
-        stx TempP0	; jump to current line of the digit
+	stx TempP0	; add relative index being rendered
         adc TempP0
         
         tay
-        lda DigitsBitmap,y
-        ;and $0F;temporary
+        lda DigitsBitmap,y       
+        and #$0F
+        
         sta TempP0
-
+        
 	;---------- PLAYER 2 SCORE
         lda Scores
-        and #$0F	; mask out the least significant digit
-	
+        and #$F0
+        lsr
+        lsr        
+        lsr
+        lsr        
+        
         sta TempP1
         asl
         asl        
-        adc TempP1	; multiply by 5
-        
-        stx TempP1	; jump to current line of the digit
+        adc TempP1	; multiply by 5        
+
+	stx TempP1
         adc TempP1
-        
+
         tay
         lda DigitsBitmap,y
-        ;and $0F;temporary        
+        and #$0F
         sta TempP1
         
 	rts
@@ -554,9 +557,35 @@ SkipP1:
         rts
         
 CollisionPlayer:	
-
         ;Update scores
-        inc Scores        
+        cpx PARP0
+        beq CollisionP0
+
+CollisionP1:	
+	
+        lda Scores
+        and #$F0
+        adc #1
+        ora Scores
+        sta Scores
+        rts
+        
+CollisionP0:        
+        lda Scores
+        and #$0F
+        lsr
+        lsr
+        lsr
+        lsr
+        adc #1
+        asl
+        asl
+        asl
+        asl
+        ;and #$F0
+        ora Scores
+        sta Scores
+        rts
         
 PossibleCollision:
 	
