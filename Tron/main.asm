@@ -409,6 +409,7 @@ nxtScanLine:
         
         ldx PARP1
         jsr CheckCollision
+        sta CXCLR	; clear collision detection for this frame
 
         
         ldy Player0YPrev
@@ -519,10 +520,16 @@ CheckCollision subroutine
 ;check collisions
 ; Did the player collide with the wall?
         ;lda #%10000000
-        bit CXP0FB;x
-        bpl PossibleCollision        
-        sta CXCLR	
         
+        cpx PARP0
+        beq SkipP0        
+        bit CXP1FB
+        bpl PossibleCollision
+	jmp SkipP1
+SkipP0:        
+        bit CXP0FB;x   
+        bpl PossibleCollision        
+SkipP1:         
         ;if collision in Y
         lda Player0Y,x
         sec
