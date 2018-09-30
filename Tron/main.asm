@@ -2,23 +2,15 @@
 ; Program Information
 ;===============================================================================
 
-    ; Program:      Collect
-    ; Program by:   Darrell Spice, Jr
-    ; Last Update:  June 25, 2014
-    ;
-    ; Super simple game of "collect the boxes" used for presentation on
-    ; developing Atari 2600 homebrew games.
-    ;
-    ; See readme.txt for compile instructions
-    
+    ; Program:      TRONIC
+    ; Program by:   Adriano C. Sabo
+    ; Last Update:  Semptemper 27, 2018
     
 ;===============================================================================
 ; Change Log
 ;===============================================================================
  
-    ; 2013.06.24 - generate a stable display
-    ; 2013.06.25 - add timers 
-
+    ; 2018.10.27 - generate a stable display
 
 ;===============================================================================
 ; Initialize dasm
@@ -136,15 +128,6 @@ initGrid:
         dey
         bne initGrid    
         
-        ;test to be removed
-        ;ldy #79
-        ;lda #6
-        ;sta PF0_left,y	
-        
-        ;ldy #22
-        ;lda #$86
-        ;sta PF0_left,y	
-        
 ;===============================================================================
 ; Main Program Loop
 ;===============================================================================
@@ -205,10 +188,10 @@ Kernel
         SLEEP 2;10 ; to make timing analysis work out
         
 	;grid color
-        lda #$33
+        lda GradientColorGrid,x
         sta COLUBK
         
-	lda #$60
+	lda #$40
         sta COLUPF        
         
         lda Player0Y
@@ -225,8 +208,7 @@ Kernel
         ldy #MaxRows	; start        
         ;===========
         SLEEP 18	; TRICK TO WAIT FOR THE RIGHT TIME
-PatternChanged      
-
+PatternChanged 
 	;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
         lda #$F0
         cpy TempP1
@@ -239,8 +221,7 @@ doDrawP2:
         cpy TempP0
         beq doDrawP1
         lda #0			; no, load the padding offset (0)
-doDrawP1:       
-        
+doDrawP1:
 	;--------------
 	;enable/disable player
         stx GRP1
@@ -249,7 +230,9 @@ doDrawP1:
 	jmp SkipLine        ; TO AVOID BLANK LINE
 
 RowsHeightLoop
+	lda GradientColorGrid,x	; guideline on the grid
 	sta WSYNC        
+        sta COLUBK
 SkipLine
         lda PF0_left,y 
         sta PF0 
@@ -260,7 +243,7 @@ SkipLine
         lda PF2_left,y 
         sta PF2 
                
-	SLEEP 6
+	SLEEP 4
         
         lda PF0_right,y
         sta PF0
@@ -275,6 +258,7 @@ SkipLine
         bne RowsHeightLoop  	; Branch if Not Equal to 0    
 
    	dey  
+	
         bpl PatternChanged	; NEXT LINE OF THE GRID
         
 RowsEnd        
@@ -426,7 +410,9 @@ nxtScanLine:
         ldy PARP1        
         jsr MoveJoystick
         
+        jsr ShowPanelStart
         
+        jsr UpdateIAPlayer
         
 ;===============================================================================
 ; CHECKING SWITCHES
@@ -469,6 +455,29 @@ DivideLoop
 	sta HMP0,x	; set fine offset
 	rts		; return to caller        
 
+;===============================================================================
+; I.A Player 2
+; --------------
+;
+;===============================================================================
+UpdateIAPlayer	subroutine
+        
+        
+	rts
+        
+;===============================================================================
+; Show Panel Start
+; --------------
+;
+;===============================================================================
+ShowPanelStart 	subroutine
+	ldy #10
+NextWordRow:
+	
+        dey
+        bne NextWordRow
+	rts
+        
 ; Fetches bitmap data for two digits of a
 ; BCD-encoded number, storing it in TempP1 and TempP2
 ; FontBuf+x to FontBuf+4+x.
@@ -544,19 +553,29 @@ SkipP1:
         lda Player0X,x
         sec
         sbc Player0XPrev,x
-        cmp #5
+        cmp #6
         bpl CollisionPlayer
         
         ;or X < PrevX
         lda Player0XPrev,x
         sec
         sbc Player0X,x
-        cmp #5
+        cmp #6
         bpl CollisionPlayer 
-                
         rts
         
 CollisionPlayer:	
+
+
+	; Make a little sound
+	;txa
+        lda #45
+	sta AUDF1	; frequency
+        sta AUDF0	; frequency
+        lda #8
+	sta AUDC1
+        sta AUDC0
+        
         ;Update scores
         cpx PARP0
         beq CollisionP0
@@ -624,7 +643,7 @@ CollisionLeft:
 	sta Player0XPrev,x ; rounded X collision   
         
 NoCollisionAtAll:      
-
+	
 	lda Player0Y,x
         lsr
         lsr
@@ -732,14 +751,16 @@ MoveJoystick
         dex
         
         stx Player0Y,y
+        
         ;round X position
         lda Player0X,y
+        sec
         lsr
         lsr
         asl
-        asl    
-        sta Player0X,y 
+        asl                
         sta Player0XPrev,y
+        sta Player0X,y 
         ;---        
         rts
 SkipMoveUp
@@ -751,14 +772,15 @@ SkipMoveUp
         inx        
         
         stx Player0Y,y
+        
         ;round X position
-        lda Player0X,y        
+        lda Player0X,y
         lsr
         lsr
         asl
-        asl
-        sta Player0X,y 
+        asl                
         sta Player0XPrev,y
+        sta Player0X,y 
         ;---        
         rts        
 SkipMoveDown
@@ -770,11 +792,18 @@ SkipMoveDown
 	bne SkipMoveLeft
         cpx #1
         bcc SkipMoveLeft
-        dex
-        
+        dex        
         stx Player0X,y
+        
         ;round Y position
-        ;---        
+        lda Player0Y,y
+        lsr
+        lsr
+        asl
+        asl        
+        sta Player0Y,y
+        sta Player0YPrev,y         
+               
         rts         
 SkipMoveLeft
 	lda CRTP0RIGHT,y;Right?
@@ -783,11 +812,18 @@ SkipMoveLeft
         cpx #156
         bcs SkipMoveRight
         inx        
-        
         stx Player0X,y
+        
         ;round Y position
+        lda Player0Y,y
+        lsr
+        lsr
+        asl
+        asl        
+        sta Player0Y,y
+        sta Player0YPrev,y         
+       
 SkipMoveRight	
-	;stx Player1X   
 	rts
 
      
@@ -847,9 +883,18 @@ GradientColorBK
         .byte #$66
         .byte #$68
         .byte #$6A
-        .byte #$6C	      
-		    
+        .byte #$6C  
 				
+GradientColorGrid     
+        .byte #0
+        .byte #0;80
+        .byte #0
+        .byte #0
+        .byte #80
+        .byte #0
+        .byte #0
+        .byte #0
+                                
 ;===============================================================================
 ; free space check before End of Cartridge
 ;===============================================================================
