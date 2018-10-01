@@ -89,44 +89,47 @@ PF2_right	ds 19
 ;===============================================================================
     
 InitSystem:
-    	; CLEAN_START is a macro found in macro.h
-    	; it sets all RAM, TIA registers and CPU registers to 0
+        ; CLEAN_START is a macro found in macro.h
+        ; it sets all RAM, TIA registers and CPU registers to 0
         CLEAN_START   
-        
+
         ;player position
         lda #4
         sta Player0X
         lda #4
         sta Player0XPrev
-        
-	lda #36
+
+        lda #36
         sta Player0Y
         sta Player0YPrev
-        
+
         ;player position
         lda #152
         sta Player1X
         lda #152
         sta Player1XPrev
-        
+
         lda #36
         sta Player1Y
         sta Player1YPrev
-        
+
         ;init Score
         lda #$00
         sta Scores
         lda #%01001000; P1 goes left P2 goes right
         sta Controls
         ;sta ScoreP2
-        
+
         ;init grid mem
         ldy #144
         lda #$00
 initGrid:
-	sta PF0_left,y	
+        sta PF0_left,y	
         dey
         bne initGrid    
+        
+        lda #$40
+        sta COLUPF             
         
 ;===============================================================================
 ; Main Program Loop
@@ -149,7 +152,7 @@ Main:
         sta WSYNC   ; Wait for Sync - halts CPU until end of 1st scanline of VSYNC
         sta WSYNC   ; wait until end of 2nd scanline of VSYNC
         lda #0      ; LoaD Accumulator with 0 so D1=0
-	sta WSYNC   ; wait until end of 3rd scanline of VSYNC
+        sta WSYNC   ; wait until end of 3rd scanline of VSYNC
         sta VSYNC   ; Accumulator D1=0, turns off Vertical Sync signal
 
 ;===============================================================================
@@ -162,7 +165,7 @@ Main:
         sta COLUP0        
         lda #$A2
         sta COLUP1    
-        
+
         ;line delimiter before grid
         ldx #5
         lda GradientColorBK,x		        
@@ -180,85 +183,85 @@ Kernel
         sta WSYNC       ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM       ; check the timer
         bne Kernel      ; Branch if its Not Equal to 0
-    	; turn on the display
+        ; turn on the display
         sta VBLANK      ; Accumulator D1=0, turns off Vertical Blank signal (image output on)
 
         ; Set up timer (in case of bugs where we don't hit exactly)
         TIMER_SETUP 192
         SLEEP 2;10 ; to make timing analysis work out
-        
-	;grid color
+
+        ;grid color
         lda GradientColorGrid,x
         sta COLUBK
-        
-	lda #$40
-        sta COLUPF        
-        
+
+        ;lda #$40
+        ;sta COLUPF        
+
         lda Player0Y
         lsr        
         lsr
         sta TempP0
-        
+
 
         lda Player1Y
         lsr
         lsr
         sta TempP1        
-        
+
         ldy #MaxRows	; start        
         ;===========
         SLEEP 18	; TRICK TO WAIT FOR THE RIGHT TIME
-PatternChanged 
-	;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
+PatternChanged:
+        ;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
         lda #$F0
         cpy TempP1
         beq doDrawP2
         lda #0			; no, load the padding offset (0)        
 doDrawP2:       
-	tax	; backup para dar tempo !!! aproveitando o x já que está zerado
-        
+        tax	; backup para dar tempo !!! aproveitando o x já que está zerado
+
         lda #$F0
         cpy TempP0
         beq doDrawP1
         lda #0			; no, load the padding offset (0)
 doDrawP1:
-	;--------------
-	;enable/disable player
+        ;--------------
+        ;enable/disable player
         stx GRP1
         ldx #SpriteHeight
         sta GRP0 
-	jmp SkipLine        ; TO AVOID BLANK LINE
+        jmp SkipLine        ; TO AVOID BLANK LINE
 
 RowsHeightLoop
-	lda GradientColorGrid,x	; guideline on the grid
-	sta WSYNC        
+        lda GradientColorGrid,x	; guideline on the grid
+        sta WSYNC        
         sta COLUBK
 SkipLine
         lda PF0_left,y 
         sta PF0 
-        
+
         lda PF1_left,y 
         sta PF1     
-        
+
         lda PF2_left,y 
         sta PF2 
-               
-	SLEEP 4
-        
+
+        SLEEP #4
+
         lda PF0_right,y
         sta PF0
-        
+
         lda PF1_right,y
         sta PF1
-        
+
         lda PF2_right,y
         sta PF2
-        
+
         dex
         bne RowsHeightLoop  	; Branch if Not Equal to 0    
 
-   	dey  
-	
+        dey  
+
         bpl PatternChanged	; NEXT LINE OF THE GRID
         
 RowsEnd        
@@ -270,7 +273,7 @@ RowsEnd
         sta PF1
         sta PF2 	; clear playfield        
         sta WSYNC
-        
+
         ; line delimimter after grid
         ldx #5
         lda GradientColorBK,x		        
@@ -280,8 +283,8 @@ RowsEnd
         sta PF0
         sta PF1
         sta PF2 	; clear playfield
-        
-    
+
+
         sta WSYNC	; add extra line to keep simetry with the top	
         sta COLUBK
         sta COLUPF
@@ -289,16 +292,16 @@ RowsEnd
 ;===============================================================================
 ; Scoreboard
 ;===============================================================================
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
+        ;sta WSYNC
         sta WSYNC
         sta WSYNC
         sta WSYNC
         sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
 
         ldx #5
         lda GradientColorBK,x		        
@@ -309,7 +312,7 @@ RowsEnd
 
         ldx #4 ; digit height
 nxtDigitLine:                
-	lda #0
+        lda #0
         sta PF1
         jsr UpdateScoreLine
         ldy #4
@@ -317,33 +320,33 @@ nxtScanLine:
         lda TempP0        
         sta WSYNC
         sta PF1
-        
+
         lda GradientColorBK,x		        
         sta COLUBK
-        
+
         SLEEP #26
-        
+
         lda TempP1
         sta PF1
-        
+
         dey        
         bne nxtScanLine
-        
+
         SLEEP #8
 
         dex
         bpl nxtDigitLine
-        
+
         sta WSYNC
-        
+
         ;end of digits panel
         lda #%00000000; clear score mode 
         sta CTRLPF; -> CTRLPF
-        
+
         lda #0
         sta PF0
         sta PF1
-        
+
         sta GRP0
         sta GRP1        
         sta WSYNC	; add extra line to keep simetry with the top	
@@ -359,7 +362,7 @@ nxtScanLine:
 ; game logic runs here.  Since we don't have any yet, just delay so that the
 ; entire video frame consists of 262 scanlines
 ;===============================================================================
-	sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
+        sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda #2      ; LoaD Accumulator with 2 so D1=1
         sta VBLANK  ; STore Accumulator to VBLANK, D1=1 turns image output off
 
@@ -375,44 +378,46 @@ nxtScanLine:
 
         ;-------------------
         sta HMCLR	; reset the old horizontal position
-        
+
         ldx PARP0
         jsr SetHorizPos
-        
+
         ldx PARP1
         jsr SetHorizPos     
-        
+
         sta WSYNC
         sta HMOVE	; gotta apply HMOVE        
         ;-------------------
 
-	ldx PARP0
+        ldx PARP0
         jsr CheckCollision
-        
+
         ldx PARP1
         jsr CheckCollision
         sta CXCLR	; clear collision detection for this frame
 
-        
+
         ldy Player0YPrev
         ldx Player0XPrev
         jsr UpdateGrid       
 
-	
+
         ldy Player1YPrev
         ldx Player1XPrev
         jsr UpdateGrid       
-        
-   
-   	ldy PARP0
+
+
+        ldy PARP0
         jsr MoveJoystick
-        
+
         ldy PARP1        
         jsr MoveJoystick
-        
+
         jsr ShowPanelStart
-        
+
         jsr UpdateIAPlayer
+
+        ;jsr DrawGetReady
         
 ;===============================================================================
 ; CHECKING SWITCHES
@@ -422,9 +427,9 @@ ProcessSwitches:
         lda SWCHB       ; load in the state of the switches
         lsr             ; D0 is now in C
         bcs OSwait    	; if D0 was on, the RESET switch was not held        
-	jmp InitSystem
-        
-        
+        jmp InitSystem
+
+
 ;===============================================================================
 ; Restaring game loop
 ;===============================================================================
@@ -435,25 +440,92 @@ OSwait:
         lda INTIM   ; Check the timer
         bne OSwait  ; Branch if its Not Equal to 0
 
-	
+
         jmp Main            ; JuMP to Main
+
+
         
-SetHorizPos
-	lda Player0X,x
-	sta WSYNC	; start a new line
+;===============================================================================
+; DrawGetReady
+; --------------
+;
+;===============================================================================
+DrawGetReady subroutine
+        ldy #0        
+        ldx #15        
+doLoop123:
+
+        ; fill left side
+        lda GetReadyWording,y 
+        ora PF0_left,x
+        sta PF0_left,x
+        iny
+
+        lda GetReadyWording,y
+        ora PF1_left,x
+        sta PF1_left,x
+        iny
+
+        lda GetReadyWording,y
+        ora PF2_left,x
+        sta PF2_left,x
+        iny
+
+        ; fill right side
+        lda GetReadyWording,y
+        ora PF0_right,x
+        sta PF0_right,x
+        iny
+
+        lda GetReadyWording,y
+        ora PF1_right,x 
+        sta PF1_right,x  
+        iny
+
+        lda GetReadyWording,y
+        ora PF2_right,x   
+        sta PF2_right,x        
+
+        dex        
+        iny
+
+        cpy #78
+        bcc doLoop123
+
+        ;lda #$43
+        ;sta COLUPF  
+
+        lda Scores
+        sta COLUPF   
+        inc Scores
+
+        ;inc Player0X
+
+        ;dec Player1X
+
+        rts
+        
+;===============================================================================
+; SetHorizPos
+; --------------
+;
+;===============================================================================
+SetHorizPos subroutine
+        lda Player0X,x
+        sta WSYNC	; start a new line
         bit 0		; waste 3 cycles
-	sec		; set carry flag
-DivideLoop
-	sbc #15		; subtract 15
-	bcs DivideLoop	; branch until negative
-	eor #7		; calculate fine offset
-	asl
-	asl
-	asl
-	asl
-	sta RESP0,x	; fix coarse position
-	sta HMP0,x	; set fine offset
-	rts		; return to caller        
+        sec		; set carry flag
+DivideLoop:
+        sbc #15		; subtract 15
+        bcs DivideLoop	; branch until negative
+        eor #7		; calculate fine offset
+        asl
+        asl
+        asl
+        asl
+        sta RESP0,x	; fix coarse position
+        sta HMP0,x	; set fine offset
+        rts		; return to caller        
 
 ;===============================================================================
 ; I.A Player 2
@@ -461,9 +533,7 @@ DivideLoop
 ;
 ;===============================================================================
 UpdateIAPlayer	subroutine
-        
-        
-	rts
+        rts
         
 ;===============================================================================
 ; Show Panel Start
@@ -471,57 +541,53 @@ UpdateIAPlayer	subroutine
 ;
 ;===============================================================================
 ShowPanelStart 	subroutine
-	ldy #10
-NextWordRow:
-	
-        dey
-        bne NextWordRow
-	rts
+
+        rts
         
 ; Fetches bitmap data for two digits of a
 ; BCD-encoded number, storing it in TempP1 and TempP2
 ; FontBuf+x to FontBuf+4+x.
 UpdateScoreLine subroutine
-	;---------- PLAYER 1 SCORE
+        ;---------- PLAYER 1 SCORE
         lda Scores        
         and #$0F	; mask out the least significant digit
-        
+
         sta TempP0
         asl
         asl        
         adc TempP0	; multiply by 5
-        
-	stx TempP0	; add relative index being rendered
+
+        stx TempP0	; add relative index being rendered
         adc TempP0
-        
+
         tay
         lda DigitsBitmap,y       
         and #$0F
-        
+
         sta TempP0
-        
-	;---------- PLAYER 2 SCORE
+
+        ;---------- PLAYER 2 SCORE
         lda Scores
         and #$F0
         lsr
         lsr        
         lsr
         lsr        
-        
+
         sta TempP1
         asl
         asl        
         adc TempP1	; multiply by 5        
 
-	stx TempP1
+        stx TempP1
         adc TempP1
 
         tay
         lda DigitsBitmap,y
         and #$0F
         sta TempP1
-        
-	rts
+
+        rts
 
 ;===============================================================================
 ; CheckCollision
@@ -529,15 +595,15 @@ UpdateScoreLine subroutine
 ;
 ;===============================================================================
 CheckCollision subroutine	
-;check collisions
-; Did the player collide with the wall?
+        ;check collisions
+        ; Did the player collide with the wall?
         ;lda #%10000000
-        
+
         cpx PARP0
         beq SkipP0        
         bit CXP1FB
         bpl PossibleCollision
-	jmp SkipP1
+        jmp SkipP1
 SkipP0:        
         bit CXP0FB;x   
         bpl PossibleCollision        
@@ -548,14 +614,14 @@ SkipP1:
         sbc Player0YPrev,x
         cmp #4
         bcs CollisionPlayer
-        
+
         ;or if collision in X
         lda Player0X,x
         sec
         sbc Player0XPrev,x
         cmp #6
         bpl CollisionPlayer
-        
+
         ;or X < PrevX
         lda Player0XPrev,x
         sec
@@ -564,18 +630,16 @@ SkipP1:
         bpl CollisionPlayer 
         rts
         
-CollisionPlayer:	
-
-
-	; Make a little sound
-	;txa
+CollisionPlayer:
+        ; Make a little sound
+        ;txa
         lda #45
-	sta AUDF1	; frequency
+        sta AUDF1	; frequency
         sta AUDF0	; frequency
         lda #8
-	sta AUDC1
+        sta AUDC1
         sta AUDC0
-        
+
         ;Update scores
         cpx PARP0
         beq CollisionP0
@@ -588,7 +652,7 @@ CollisionP1:
         ora Scores
         sta Scores
         rts
-        
+
 CollisionP0:        
         lda Scores
         and #$0F
@@ -607,15 +671,15 @@ CollisionP0:
         rts
         
 PossibleCollision:
-	
-	;if moving to the right
+
+        ;if moving to the right
         lda Player0X,x
         sec
         sbc Player0XPrev,x
         cmp #6
         bcc NoCollisionAtAll  
-                
-	;if moving to the left	
+
+        ;if moving to the left	
         lda Player0XPrev,x
         sec
         sbc Player0X,x
@@ -623,28 +687,28 @@ PossibleCollision:
         bpl CollisionLeft
         
 CollisionRight:
-	     
-	lda Player0X,x
+
+        lda Player0X,x
         lsr
         lsr
         asl
         asl        
-	sta Player0XPrev,x ; rounded X collision    
-	jmp NoCollisionAtAll
+        sta Player0XPrev,x ; rounded X collision    
+        jmp NoCollisionAtAll
         
 CollisionLeft:
-	      
-	lda Player0X,x
+
+        lda Player0X,x
         adc #4 ;needed when moving to the left        
         lsr
         lsr
         asl
         asl
-	sta Player0XPrev,x ; rounded X collision   
+        sta Player0XPrev,x ; rounded X collision   
         
 NoCollisionAtAll:      
-	
-	lda Player0Y,x
+
+        lda Player0Y,x
         lsr
         lsr
         asl
@@ -659,16 +723,16 @@ NoCollisionAtAll:
 ;
 ;===============================================================================
 UpdateGrid subroutine
-	tya
+        tya
         ;adc 1
         lsr
         lsr
         tay
-                
-	txa
+
+        txa
         ;adc 1	; 
-	lsr
-	lsr ; div 4
+        lsr
+        lsr ; div 4
         ;
 
         cmp #20
@@ -703,8 +767,8 @@ pf2_l:
         rts
 		
 SecondHalf:
-	sec
-	sbc #20
+        sec
+        sbc #20
 		
 pf0_r:	
         cmp #4
@@ -731,7 +795,7 @@ pf2_r:
         lda PF2_right,y	
         ora BitReprF2,x		
         sta PF2_right,y	
-	rts	
+        rts	
         
 ;===============================================================================
 ; MoveJoystick
@@ -740,18 +804,18 @@ pf2_r:
 ;===============================================================================        
 ; Read joystick movement and apply to object 0
 MoveJoystick
-; Move vertically
-; (up and down are actually reversed since ypos starts at bottom)
-	ldx Player0Y,y
-	lda CRTP0DOWN,y;Down?
-	bit SWCHA
-	bne SkipMoveUp
+        ; Move vertically
+        ; (up and down are actually reversed since ypos starts at bottom)
+        ldx Player0Y,y
+        lda CRTP0DOWN,y;Down?
+        bit SWCHA
+        bne SkipMoveUp
         cpx #1
         bcc SkipMoveUp
         dex
-        
+
         stx Player0Y,y
-        
+
         ;round X position
         lda Player0X,y
         sec
@@ -764,15 +828,15 @@ MoveJoystick
         ;---        
         rts
 SkipMoveUp
-	lda CRTP0UP,y;UP?
-	bit SWCHA 
-	bne SkipMoveDown
+        lda CRTP0UP,y;UP?
+        bit SWCHA 
+        bne SkipMoveDown
         cpx #72
         bcs SkipMoveDown
         inx        
-        
+
         stx Player0Y,y
-        
+
         ;round X position
         lda Player0X,y
         lsr
@@ -784,47 +848,35 @@ SkipMoveUp
         ;---        
         rts        
 SkipMoveDown
-	stx Player0Y,y
-	; Move horizontally
+        stx Player0Y,y
+        ; Move horizontally
         ldx Player0X,y
-	lda CRTP0LEFT,y;Left?
-	bit SWCHA
-	bne SkipMoveLeft
+        lda CRTP0LEFT,y;Left?
+        bit SWCHA
+        bne SkipMoveLeft
         cpx #1
         bcc SkipMoveLeft
         dex        
         stx Player0X,y
-        
+
         ;round Y position
-        lda Player0Y,y
-        lsr
-        lsr
-        asl
-        asl        
-        sta Player0Y,y
-        sta Player0YPrev,y         
-               
+
+
         rts         
 SkipMoveLeft
-	lda CRTP0RIGHT,y;Right?
-	bit SWCHA 
-	bne SkipMoveRight
+        lda CRTP0RIGHT,y;Right?
+        bit SWCHA 
+        bne SkipMoveRight
         cpx #156
         bcs SkipMoveRight
         inx        
         stx Player0X,y
         
         ;round Y position
-        lda Player0Y,y
-        lsr
-        lsr
-        asl
-        asl        
-        sta Player0Y,y
-        sta Player0YPrev,y         
+      
        
 SkipMoveRight	
-	rts
+        rts
 
      
 ;===============================================================================
@@ -854,14 +906,11 @@ CRTP1LEFT	.byte #%00000100
 CRTP0RIGHT	.byte #%10000000	
 CRTP1RIGHT	.byte #%00001000	
 
-BitReprF0
-	.byte #%00010000,#%00100000,#%01000000,#%10000000
+BitReprF0	.byte #%00010000,#%00100000,#%01000000,#%10000000
 
-BitReprF1
-	.byte #%10000000,#%01000000,#%00100000,#%00010000,#%00001000,#%00000100,#%00000010,#%00000001
+BitReprF1	.byte #%10000000,#%01000000,#%00100000,#%00010000,#%00001000,#%00000100,#%00000010,#%00000001
 		
-BitReprF2
-	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
+BitReprF2	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
 
 ; Bitmap pattern for digits
 DigitsBitmap 
@@ -894,6 +943,21 @@ GradientColorGrid
         .byte #0
         .byte #0
         .byte #0
+        
+        
+GetReadyWording
+        .byte #$00,#$00,#$00,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
+        .byte #$00,#$00,#$42,#$20,#$80,#$00
+        .byte #$00,#$00,#$DA,#$30,#$80,#$00
+        .byte #$00,#$00,#$52,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$30,#$80,#$00
+        .byte #$00,#$00,#$00,#$00,#$02,#$00
+        .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
+        .byte #$00,#$02,#$45,#$50,#$AA,#$00
+        .byte #$00,#$03,#$CC,#$50,#$BA,#$00
+        .byte #$00,#$02,#$45,#$50,#$90,#$00
+        .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
                                 
 ;===============================================================================
 ; free space check before End of Cartridge
