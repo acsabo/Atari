@@ -417,7 +417,7 @@ nxtScanLine:
 
         jsr UpdateIAPlayer
 
-        ;jsr DrawGetReady
+        jsr DrawGetReady
         
 ;===============================================================================
 ; CHECKING SWITCHES
@@ -489,8 +489,8 @@ doLoop123:
         dex        
         iny
 
-        cpy #78
-        bcc doLoop123
+        cpy #67
+        bmi doLoop123
 
         ;lda #$43
         ;sta COLUPF  
