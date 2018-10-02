@@ -116,8 +116,8 @@ InitSystem:
         ;init Score
         lda #$00
         sta Scores
-        lda #%01001000; P1 goes left P2 goes right
-        sta Controls
+        ;lda #%00000000; P1 goes left P2 goes right
+        ;sta Controls
         ;sta ScoreP2
 
         ;init grid mem
@@ -292,17 +292,6 @@ RowsEnd
 ;===============================================================================
 ; Scoreboard
 ;===============================================================================
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        ;sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-
         ldx #5
         lda GradientColorBK,x		        
         sta COLUBK		
@@ -390,10 +379,10 @@ nxtScanLine:
         ;-------------------
 
         ldx PARP0
-        jsr CheckCollision
+        ;jsr CheckCollision
 
         ldx PARP1
-        jsr CheckCollision
+        ;jsr CheckCollision
         sta CXCLR	; clear collision detection for this frame
 
 
@@ -408,16 +397,24 @@ nxtScanLine:
 
 
         ldy PARP0
-        jsr MoveJoystick
+        jsr MovePlayerAround
 
         ldy PARP1        
-        jsr MoveJoystick
+        jsr MovePlayerAround        
 
-        jsr ShowPanelStart
+        ldy PARP0
+        jsr UpdateJoystickStatus
 
-        jsr UpdateIAPlayer
+        ldy PARP1        
+        jsr UpdateJoystickStatus
+        
+        ;jsr ShowPanelStart
 
-        jsr DrawGetReady
+        ;jsr UpdateIAPlayer
+
+        jsr DrawGetReady        
+        ;lda #43
+        ;sta COLUPF        
         
 ;===============================================================================
 ; CHECKING SWITCHES
@@ -444,7 +441,115 @@ OSwait:
         jmp Main            ; JuMP to Main
 
 
+;===============================================================================
+; UpdateJoystick
+; --------------
+; Read joystick movement and apply to object 0
+;===============================================================================        
+UpdateJoystickStatus subroutine
+	lda Controls        
+        and CRTPOHALF,y
+        sta TempP0
         
+	; Move vertically
+        ; (up and down are actually reversed since ypos starts at bottom)
+        lda CRTP0DOWN,y;Down?
+        bit SWCHA
+        bne skpDown
+        
+        lda CRTP0DOWN,y
+        ora TempP0
+        ora Controls
+        sta Controls
+        
+skpDown:
+        lda CRTP0UP,y;UP?
+        bit SWCHA 
+        bne skpUp
+
+        lda CRTP0UP,y
+        ora TempP0
+        ora Controls
+        sta Controls
+        
+skpUp:
+        lda CRTP0LEFT,y;Left?
+        bit SWCHA
+        bne skpLeft
+        
+        lda CRTP0LEFT,y
+        ora TempP0
+        ora Controls   
+        sta Controls
+
+skpLeft:
+        lda CRTP0RIGHT,y;Right?
+        bit SWCHA 
+        bne skpRight
+        
+        lda CRTP0RIGHT,y
+        ora TempP0
+        ora Controls
+        sta Controls
+        
+skpRight:	
+
+        rts
+        
+;===============================================================================
+; MovePlayerAround
+; --------------
+MovePlayerAround subroutine
+	lda Controls        
+        and CRTPOHALF,y
+        sta TempP0
+	
+        ; Move vertically
+        ; (up and down are actually reversed since ypos starts at bottom)
+        ldx Player0Y,y
+        
+        lda CRTP0DOWN,y;Down?
+        bit TempP0
+        
+        bne SkipMoveUp
+        cpx #1
+        bcc SkipMoveUp
+        dex
+        stx Player0Y,y            
+        
+SkipMoveUp
+        lda CRTP0UP,y;UP?
+        bit TempP0 
+        
+        bne SkipMoveDown
+        cpx #72
+        bcs SkipMoveDown
+        inx
+        stx Player0Y,y
+              
+SkipMoveDown
+        ; Move horizontally
+        ldx Player0X,y
+        lda CRTP0LEFT,y;Left?
+        
+        bit TempP0
+        bne SkipMoveLeft
+        cpx #1
+        bcc SkipMoveLeft
+        dex        
+        stx Player0X,y
+               
+SkipMoveLeft
+        lda CRTP0RIGHT,y;Right?
+        bit TempP0 
+        bne SkipMoveRight
+        cpx #156
+        bcs SkipMoveRight
+        inx        
+        stx Player0X,y      
+SkipMoveRight	
+        rts
+
 ;===============================================================================
 ; DrawGetReady
 ; --------------
@@ -798,88 +903,6 @@ pf2_r:
         rts	
         
 ;===============================================================================
-; MoveJoystick
-; --------------
-; Read joystick movement and apply to object 0
-;===============================================================================        
-; Read joystick movement and apply to object 0
-MoveJoystick
-        ; Move vertically
-        ; (up and down are actually reversed since ypos starts at bottom)
-        ldx Player0Y,y
-        lda CRTP0DOWN,y;Down?
-        bit SWCHA
-        bne SkipMoveUp
-        cpx #1
-        bcc SkipMoveUp
-        dex
-
-        stx Player0Y,y
-
-        ;round X position
-        lda Player0X,y
-        sec
-        lsr
-        lsr
-        asl
-        asl                
-        sta Player0XPrev,y
-        sta Player0X,y 
-        ;---        
-        rts
-SkipMoveUp
-        lda CRTP0UP,y;UP?
-        bit SWCHA 
-        bne SkipMoveDown
-        cpx #72
-        bcs SkipMoveDown
-        inx        
-
-        stx Player0Y,y
-
-        ;round X position
-        lda Player0X,y
-        lsr
-        lsr
-        asl
-        asl                
-        sta Player0XPrev,y
-        sta Player0X,y 
-        ;---        
-        rts        
-SkipMoveDown
-        stx Player0Y,y
-        ; Move horizontally
-        ldx Player0X,y
-        lda CRTP0LEFT,y;Left?
-        bit SWCHA
-        bne SkipMoveLeft
-        cpx #1
-        bcc SkipMoveLeft
-        dex        
-        stx Player0X,y
-
-        ;round Y position
-
-
-        rts         
-SkipMoveLeft
-        lda CRTP0RIGHT,y;Right?
-        bit SWCHA 
-        bne SkipMoveRight
-        cpx #156
-        bcs SkipMoveRight
-        inx        
-        stx Player0X,y
-        
-        ;round Y position
-      
-       
-SkipMoveRight	
-        rts
-
-     
-;===============================================================================
 ; free space check before DigitGfx
 ;===============================================================================
         
@@ -905,6 +928,9 @@ CRTP1LEFT	.byte #%00000100
 
 CRTP0RIGHT	.byte #%10000000	
 CRTP1RIGHT	.byte #%00001000	
+
+CRTPOHALF	.byte #$F0
+CRTP1HALF	.byte #$0F
 
 BitReprF0	.byte #%00010000,#%00100000,#%01000000,#%10000000
 
