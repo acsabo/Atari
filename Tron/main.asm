@@ -78,22 +78,16 @@ PF2_right	ds 19
     ; 2K ROM starts at $F800, 4K ROM starts at $F000
     ORG $F800
 
-
-;===============================================================================
-; Initialize Atari
-;===============================================================================
-    
-InitSystem:
+InitSystem
         ; CLEAN_START is a macro found in macro.h
         ; it sets all RAM, TIA registers and CPU registers to 0
-        CLEAN_START   
-
+        CLEAN_START           
         ;player position
         lda #4
         sta Player0X
         lda #4
         sta Player0XPrev
-
+        
         lda #36
         sta Player0Y
         sta Player0YPrev
@@ -208,13 +202,13 @@ Kernel
         ;===========
         SLEEP #18	; TRICK TO WAIT FOR THE RIGHT TIME
 PatternChanged:
-        ;-------------- AQUI OCORRE O SALTO PORQUE N√ÉO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
+        ;-------------- AQUI OCORRE O SALTO PORQUE N√O HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
         lda #$F0
         cpy TempP1
         beq doDrawP2
         lda #0			; no, load the padding offset (0)        
 doDrawP2:       
-        tax	; backup para dar tempo !!! aproveitando o x j√° que est√° zerado
+        tax	; backup para dar tempo !!! aproveitando o x j· que est· zerado
 
         lda #$F0
         cpy TempP0
@@ -361,6 +355,19 @@ nxtScanLine:
         lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
         sta TIM64T  ; set timer to go off in 27 scanlines
 
+;===============================================================================
+; CHECKING SWITCHES
+;===============================================================================
+
+ProcessSwitches:
+        lda SWCHB       ; load in the state of the switches
+        lsr             ; D0 is now in C
+        bcs skipSwitches    	; if D0 was on, the RESET switch was not held        
+        jsr ResetGame
+        jmp OSwait
+        
+skipSwitches:     
+
         ;-------------------
         sta HMCLR	; reset the old horizontal position
 
@@ -382,13 +389,13 @@ nxtScanLine:
         sta CXCLR	; clear collision detection for this frame
 
 
-        ldy Player0YPrev
-        ldx Player0XPrev
+        ldy Player0Y
+        ldx Player0X
         jsr UpdateGrid       
 
 
-        ldy Player1YPrev
-        ldx Player1XPrev
+        ldy Player1Y
+        ldx Player1X
         jsr UpdateGrid       
 
 
@@ -408,15 +415,7 @@ nxtScanLine:
 
         ;jsr DrawGetReady	; there is not enought time for this here 
   
-;===============================================================================
-; CHECKING SWITCHES
-;===============================================================================
 
-ProcessSwitches:
-        lda SWCHB       ; load in the state of the switches
-        lsr             ; D0 is now in C
-        bcs OSwait    	; if D0 was on, the RESET switch was not held        
-        jmp InitSystem
 
 
 ;===============================================================================
@@ -432,6 +431,52 @@ OSwait:
 
         jmp Main            ; JuMP to Main
 
+
+;===============================================================================
+;ResetGame
+;===============================================================================
+    
+ResetGame subroutine
+	
+        ;player position
+        lda #4
+        sta Player0X
+        lda #4
+        sta Player0XPrev
+        
+        lda #36
+        sta Player0Y
+        sta Player0YPrev
+
+        ;player position
+        lda #152
+        sta Player1X
+        lda #152
+        sta Player1XPrev
+
+        lda #36
+        sta Player1Y
+        sta Player1YPrev
+
+        ;init Score
+        lda #$00
+        sta Scores
+
+        ;init grid mem
+        ldy #114
+        lda #$00
+resetGrid:
+        sta PF0_left,y	
+        dey
+        bne resetGrid    
+        
+        lda #$40
+        sta COLUPF            
+        
+        ;set init directions
+        lda CRTP0RIGHT
+        sta Controls
+        rts
 
 ;===============================================================================
 ; UpdateJoystick
