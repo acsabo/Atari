@@ -28,8 +28,6 @@
  
 SpriteHeight	equ 8 
 MaxRows		equ 18
-NDigitRows	equ 5	; number of lines of bricks
-NDR		equ NDigitRows	; abbreviation for number of brick rows
 PARP0 		equ 0
 PARP1		equ 1
  
@@ -63,15 +61,12 @@ TempP1		.byte
 Scores		.byte
 Controls	.byte
 
-;PowerUP		.byte
-
 PF0_left	ds 19
 PF1_left	ds 19
 PF2_left	ds 19
 PF0_right	ds 19
 PF1_right	ds 19
 PF2_right	ds 19
-         
 	       
 ;===============================================================================
 ; Define Start of Cartridge
@@ -116,12 +111,9 @@ InitSystem:
         ;init Score
         lda #$00
         sta Scores
-        ;lda #%00000000; P1 goes left P2 goes right
-        ;sta Controls
-        ;sta ScoreP2
 
         ;init grid mem
-        ldy #144
+        ldy #114
         lda #$00
 initGrid:
         sta PF0_left,y	
@@ -129,7 +121,11 @@ initGrid:
         bne initGrid    
         
         lda #$40
-        sta COLUPF             
+        sta COLUPF            
+        
+        ;set init directions
+        lda CRTP0RIGHT
+        sta Controls
         
 ;===============================================================================
 ; Main Program Loop
@@ -194,8 +190,8 @@ Kernel
         lda GradientColorGrid,x
         sta COLUBK
 
-        ;lda #$40
-        ;sta COLUPF        
+        lda #$40
+        sta COLUPF        
 
         lda Player0Y
         lsr        
@@ -210,7 +206,7 @@ Kernel
 
         ldy #MaxRows	; start        
         ;===========
-        SLEEP 18	; TRICK TO WAIT FOR THE RIGHT TIME
+        SLEEP #18	; TRICK TO WAIT FOR THE RIGHT TIME
 PatternChanged:
         ;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
         lda #$F0
@@ -379,10 +375,10 @@ nxtScanLine:
         ;-------------------
 
         ldx PARP0
-        ;jsr CheckCollision
+        jsr CheckCollision
 
         ldx PARP1
-        ;jsr CheckCollision
+        jsr CheckCollision
         sta CXCLR	; clear collision detection for this frame
 
 
@@ -408,14 +404,10 @@ nxtScanLine:
         ldy PARP1        
         jsr UpdateJoystickStatus
         
-        ;jsr ShowPanelStart
-
         ;jsr UpdateIAPlayer
 
-        jsr DrawGetReady        
-        ;lda #43
-        ;sta COLUPF        
-        
+        ;jsr DrawGetReady	; there is not enought time for this here 
+  
 ;===============================================================================
 ; CHECKING SWITCHES
 ;===============================================================================
@@ -446,11 +438,7 @@ OSwait:
 ; --------------
 ; Read joystick movement and apply to object 0
 ;===============================================================================        
-UpdateJoystickStatus subroutine
-	lda Controls        
-        and CRTPOHALF,y
-        sta TempP0
-        
+UpdateJoystickStatus subroutine      
 	; Move vertically
         ; (up and down are actually reversed since ypos starts at bottom)
         lda CRTP0DOWN,y;Down?
@@ -458,40 +446,49 @@ UpdateJoystickStatus subroutine
         bne skpDown
         
         lda CRTP0DOWN,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
         ora TempP0
-        ora Controls
         sta Controls
-        
+        rts
 skpDown:
         lda CRTP0UP,y;UP?
         bit SWCHA 
         bne skpUp
 
         lda CRTP0UP,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
         ora TempP0
-        ora Controls
         sta Controls
-        
+        rts
 skpUp:
         lda CRTP0LEFT,y;Left?
         bit SWCHA
         bne skpLeft
         
         lda CRTP0LEFT,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
         ora TempP0
-        ora Controls   
         sta Controls
-
+        rts
 skpLeft:
         lda CRTP0RIGHT,y;Right?
         bit SWCHA 
         bne skpRight
         
         lda CRTP0RIGHT,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
         ora TempP0
-        ora Controls
         sta Controls
-        
+        rts
+
 skpRight:	
 
         rts
@@ -501,7 +498,7 @@ skpRight:
 ; --------------
 MovePlayerAround subroutine
 	lda Controls        
-        and CRTPOHALF,y
+        and CRTP0HALF,y
         sta TempP0
 	
         ; Move vertically
@@ -511,38 +508,38 @@ MovePlayerAround subroutine
         lda CRTP0DOWN,y;Down?
         bit TempP0
         
-        bne SkipMoveUp
+        beq SkipMoveUp
         cpx #1
         bcc SkipMoveUp
         dex
         stx Player0Y,y            
-        
+        rts
 SkipMoveUp
         lda CRTP0UP,y;UP?
         bit TempP0 
         
-        bne SkipMoveDown
+        beq SkipMoveDown
         cpx #72
         bcs SkipMoveDown
         inx
         stx Player0Y,y
-              
+        rts     
 SkipMoveDown
         ; Move horizontally
         ldx Player0X,y
         lda CRTP0LEFT,y;Left?
         
         bit TempP0
-        bne SkipMoveLeft
+        beq SkipMoveLeft
         cpx #1
         bcc SkipMoveLeft
         dex        
         stx Player0X,y
-               
+        rts       
 SkipMoveLeft
         lda CRTP0RIGHT,y;Right?
         bit TempP0 
-        bne SkipMoveRight
+        beq SkipMoveRight
         cpx #156
         bcs SkipMoveRight
         inx        
@@ -600,9 +597,9 @@ doLoop123:
         ;lda #$43
         ;sta COLUPF  
 
-        lda Scores
-        sta COLUPF   
-        inc Scores
+        ;lda Scores
+        ;sta COLUPF   
+        ;inc Scores
 
         ;inc Player0X
 
@@ -638,17 +635,25 @@ DivideLoop:
 ;
 ;===============================================================================
 UpdateIAPlayer	subroutine
-        rts
-        
-;===============================================================================
-; Show Panel Start
-; --------------
-;
-;===============================================================================
-ShowPanelStart 	subroutine
+	lda Player0Y
+        and $0F
+        lsr
+        lsr
+        lsr
+  
+        tay        
+	lda RandomDirP1,y
+        ora Controls
+        sta Controls
 
         rts
         
+
+;===============================================================================
+; UpdateScoreLine
+; --------------
+;
+;===============================================================================
 ; Fetches bitmap data for two digits of a
 ; BCD-encoded number, storing it in TempP1 and TempP2
 ; FontBuf+x to FontBuf+4+x.
@@ -916,21 +921,25 @@ pf2_r:
 ; Digit Graphics
 ;===============================================================================
         align 256
-        
-CRTP0UP		.byte #%00010000
-CRTP1UP		.byte #%00000001
+       
+       
+CRTP0UP		.byte #%00010000       
+CRTP1UP		.byte #%00000001       
 
 CRTP0DOWN	.byte #%00100000
 CRTP1DOWN	.byte #%00000010
 
 CRTP0LEFT	.byte #%01000000
 CRTP1LEFT	.byte #%00000100
-
-CRTP0RIGHT	.byte #%10000000	
+	
+CRTP0RIGHT	.byte #%10000000        
 CRTP1RIGHT	.byte #%00001000	
 
-CRTPOHALF	.byte #$F0
-CRTP1HALF	.byte #$0F
+CRTP0HALF	.byte $F0
+CRTP1HALF	.byte $0F
+
+CRTP0MERGE	.byte $0F
+CRTP1MERGE	.byte $F0
 
 BitReprF0	.byte #%00010000,#%00100000,#%01000000,#%10000000
 
@@ -985,6 +994,26 @@ GetReadyWording
         .byte #$00,#$02,#$45,#$50,#$90,#$00
         .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
                                 
+
+RandomDirP1   
+	.byte #%00000100;LEFT
+	.byte #%00000001;UP
+	.byte #%00001000;RIGHT
+	.byte #%00000010;DOWN
+	.byte #%00000100;LEFT
+	.byte #%00000001;UP
+	.byte #%00001000;RIGHT
+	.byte #%00000010;DOWN
+	.byte #%00000100;LEFT
+	.byte #%00000001;UP
+	.byte #%00001000;RIGHT
+	.byte #%00000010;DOWN
+	.byte #%00000100;LEFT
+	.byte #%00000001;UP
+	.byte #%00001000;RIGHT
+	.byte #%00000010;DOWN
+	.byte #%00000100;LEFT        
+
 ;===============================================================================
 ; free space check before End of Cartridge
 ;===============================================================================
