@@ -42,7 +42,16 @@ PARP1		equ 1
     ; RAM starts at $80
         ORG $80             
 
-    ; coming soon!
+PF0_left	ds 19
+PF1_left	ds 19
+PF2_left	ds 19
+PF0_right	ds 19
+PF1_right	ds 19
+PF2_right	ds 19
+
+TempP0		.byte
+TempP1		.byte
+
 Player0X	.byte
 Player1X	.byte
 
@@ -55,18 +64,12 @@ Player1XPrev	.byte
 Player0YPrev	.byte
 Player1YPrev	.byte
 
-TempP0		.byte
-TempP1		.byte
+
 
 Scores		.byte
 Controls	.byte
 
-PF0_left	ds 19
-PF1_left	ds 19
-PF2_left	ds 19
-PF0_right	ds 19
-PF1_right	ds 19
-PF2_right	ds 19
+
 	       
 ;===============================================================================
 ; Define Start of Cartridge
@@ -78,10 +81,14 @@ PF2_right	ds 19
     ; 2K ROM starts at $F800, 4K ROM starts at $F000
     ORG $F800
 
+
+	
 InitSystem
         ; CLEAN_START is a macro found in macro.h
         ; it sets all RAM, TIA registers and CPU registers to 0
-        CLEAN_START           
+        CLEAN_START
+        
+ResetTurn      
         ;player position
         lda #4
         sta Player0X
@@ -103,22 +110,25 @@ InitSystem
         sta Player1YPrev
 
         ;init Score
-        lda #$00
-        sta Scores
+        ;lda #$00
+        ;sta Scores
 
         ;init grid mem
-        ldy #114
+        ldy #0
         lda #$00
+        ldx #114
 initGrid:
         sta PF0_left,y	
-        dey
+        iny
+        dex
         bne initGrid    
         
-        lda #$40
-        sta COLUPF            
+        ;lda #$40
+        ;sta COLUPF            
         
         ;set init directions
         lda CRTP0RIGHT
+        ora CRTP1LEFT
         sta Controls
         
 ;===============================================================================
@@ -126,6 +136,32 @@ initGrid:
 ;===============================================================================
 
 Main:
+
+	;if any collision reset the turn
+        lda Controls
+        cmp #$FF
+        ;beq NewTurn
+        ;lda Controls
+        ;cmp #$00
+        bne skipReset
+        jmp ResetTurn
+        ;jmp OSwait
+skipReset:
+
+;===============================================================================
+; CHECKING SWITCHES
+;===============================================================================
+
+ProcessSwitches:
+        lda SWCHB       ; load in the state of the switches
+        lsr             ; D0 is now in C
+        bcs skipSwitches    	; if D0 was on, the RESET switch was not held       
+        CLEAN_START
+        jsr InitSystem
+        jmp OSwait
+        
+skipSwitches:     
+
 ;===============================================================================
 ; Vertical Sync
 ; -------------
@@ -149,7 +185,10 @@ Main:
 ; Vertical Blank
 ; --------------
 ; game logic runs here.  Coming soon!
-;===============================================================================        
+;===============================================================================       
+
+;MORE CODE CAN COME IN HERE!!!
+
         ;player color
         lda #$52
         sta COLUP0        
@@ -202,13 +241,13 @@ Kernel
         ;===========
         SLEEP #18	; TRICK TO WAIT FOR THE RIGHT TIME
 PatternChanged:
-        ;-------------- AQUI OCORRE O SALTO PORQUE NÃO HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
+        ;-------------- AQUI OCORRE O SALTO PORQUE Nï¿½O HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
         lda #$F0
         cpy TempP1
         beq doDrawP2
         lda #0			; no, load the padding offset (0)        
 doDrawP2:       
-        tax	; backup para dar tempo !!! aproveitando o x já que está zerado
+        tax	; backup para dar tempo !!! aproveitando o x jï¿½ que estï¿½ zerado
 
         lda #$F0
         cpy TempP0
@@ -333,7 +372,7 @@ nxtScanLine:
         sta COLUBK
 
         ; Wait for timer to finish
-        TIMER_WAIT
+        ;TIMER_WAIT
 
 ;===============================================================================
 ; Overscan
@@ -355,18 +394,6 @@ nxtScanLine:
         lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
         sta TIM64T  ; set timer to go off in 27 scanlines
 
-;===============================================================================
-; CHECKING SWITCHES
-;===============================================================================
-
-ProcessSwitches:
-        lda SWCHB       ; load in the state of the switches
-        lsr             ; D0 is now in C
-        bcs skipSwitches    	; if D0 was on, the RESET switch was not held        
-        jsr ResetGame
-        jmp OSwait
-        
-skipSwitches:     
 
         ;-------------------
         sta HMCLR	; reset the old horizontal position
@@ -389,13 +416,14 @@ skipSwitches:
         sta CXCLR	; clear collision detection for this frame
 
 
-        ldy Player0Y
-        ldx Player0X
+
+        ldy Player0YPrev
+        ldx Player0XPrev
         jsr UpdateGrid       
 
 
-        ldy Player1Y
-        ldx Player1X
+        ldy Player1YPrev
+        ldx Player1XPrev
         jsr UpdateGrid       
 
 
@@ -432,51 +460,6 @@ OSwait:
         jmp Main            ; JuMP to Main
 
 
-;===============================================================================
-;ResetGame
-;===============================================================================
-    
-ResetGame subroutine
-	
-        ;player position
-        lda #4
-        sta Player0X
-        lda #4
-        sta Player0XPrev
-        
-        lda #36
-        sta Player0Y
-        sta Player0YPrev
-
-        ;player position
-        lda #152
-        sta Player1X
-        lda #152
-        sta Player1XPrev
-
-        lda #36
-        sta Player1Y
-        sta Player1YPrev
-
-        ;init Score
-        lda #$00
-        sta Scores
-
-        ;init grid mem
-        ldy #114
-        lda #$00
-resetGrid:
-        sta PF0_left,y	
-        dey
-        bne resetGrid    
-        
-        lda #$40
-        sta COLUPF            
-        
-        ;set init directions
-        lda CRTP0RIGHT
-        sta Controls
-        rts
 
 ;===============================================================================
 ; UpdateJoystick
@@ -557,7 +540,16 @@ MovePlayerAround subroutine
         cpx #1
         bcc SkipMoveUp
         dex
-        stx Player0Y,y            
+        stx Player0Y,y        
+        
+        ;round X
+	lda Player0X,y
+        lsr
+        lsr
+        asl
+        asl
+        sta Player0X,y 
+        sta Player0XPrev,y
         rts
 SkipMoveUp
         lda CRTP0UP,y;UP?
@@ -568,6 +560,15 @@ SkipMoveUp
         bcs SkipMoveDown
         inx
         stx Player0Y,y
+        
+        ;round X
+	lda Player0X,y
+        lsr
+        lsr
+        asl
+        asl
+        sta Player0X,y 
+        sta Player0XPrev,y       
         rts     
 SkipMoveDown
         ; Move horizontally
@@ -580,6 +581,9 @@ SkipMoveDown
         bcc SkipMoveLeft
         dex        
         stx Player0X,y
+        ;round Y
+	lda Player0Y,y
+        sta Player0YPrev,y        
         rts       
 SkipMoveLeft
         lda CRTP0RIGHT,y;Right?
@@ -589,6 +593,9 @@ SkipMoveLeft
         bcs SkipMoveRight
         inx        
         stx Player0X,y      
+        ;round Y
+	lda Player0Y,y
+        sta Player0YPrev,y        
 SkipMoveRight	
         rts
 
@@ -752,8 +759,6 @@ UpdateScoreLine subroutine
 CheckCollision subroutine	
         ;check collisions
         ; Did the player collide with the wall?
-        ;lda #%10000000
-
         cpx PARP0
         beq SkipP0        
         bit CXP1FB
@@ -765,6 +770,11 @@ SkipP0:
 SkipP1:         
         ;if collision in Y
         lda Player0Y,x
+        ;check collision with the border
+        cmp #1
+        bmi CollisionPlayer
+        cmp #72
+        bpl CollisionPlayer        
         sec
         sbc Player0YPrev,x
         cmp #4
@@ -772,6 +782,7 @@ SkipP1:
 
         ;or if collision in X
         lda Player0X,x
+        
         sec
         sbc Player0XPrev,x
         cmp #6
@@ -801,16 +812,29 @@ CollisionPlayer:
 
 CollisionP1:	
 	
-        lda Scores
-        and #$F0
-        adc #1
-        ora Scores
-        sta Scores
+	; updating Score
+        ;lda Scores
+        ;and #$0F;CRTP0MERGE,y       
+
+        ;adc #1
+    
+        ;sta TempP0
+        ;lda Scores
+        ;and #$0F;and CRTP0MERGE,y        
+        ;ora TempP0
+        ;sta Scores
+        
+        ;flag to reset the turn
+        lda #$FF
+        sta Controls   
+        inc Scores
         rts
 
-CollisionP0:        
+CollisionP0:      
+	rts
+	; updating Score
         lda Scores
-        and #$0F
+        and #$0F;CRTP0MERGE,y 
         lsr
         lsr
         lsr
@@ -820,9 +844,14 @@ CollisionP0:
         asl
         asl
         asl
-        ;and #$F0
-        ora Scores
-        sta Scores
+        lda Scores
+        ;and CRTP0MERGE,y        
+        ora TempP0
+        sta Scores  
+        
+        ;flag to reset the turn
+        lda #$FF
+        sta Controls
         rts
         
 PossibleCollision:
@@ -840,6 +869,9 @@ PossibleCollision:
         sbc Player0X,x
         cmp #1
         bpl CollisionLeft
+        
+        lda Player0X,x
+        sta Player0XPrev,x        
         
 CollisionRight:
 
