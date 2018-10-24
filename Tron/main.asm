@@ -190,14 +190,13 @@ skipSwitches:
 ;MORE CODE CAN COME IN HERE!!!
 
         ;player color
-        lda #$52
+        lda #$84
         sta COLUP0        
-        lda #$A2
+        lda #$14
         sta COLUP1    
 
         ;line delimiter before grid
-        ldx #5
-        lda GradientColorBK,x		        
+        lda #$68
         sta COLUBK		
 
 
@@ -304,8 +303,7 @@ RowsEnd
         sta WSYNC
 
         ; line delimimter after grid
-        ldx #5
-        lda GradientColorBK,x		        
+        lda #$68
         sta COLUBK	
 
         lda #0
@@ -318,6 +316,18 @@ RowsEnd
         sta COLUBK
         sta COLUPF
         
+        lda #0
+        sta COLUBK
+        
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        
+         
 ;===============================================================================
 ; Scoreboard
 ;===============================================================================
@@ -333,12 +343,12 @@ nxtDigitLine:
         lda #0
         sta PF1
         jsr UpdateScoreLine
-        ldy #4
+        ldy #3
 nxtScanLine:
         lda TempP0        
         sta WSYNC
         sta PF1
-
+        
         lda GradientColorBK,x		        
         sta COLUBK
 
@@ -354,25 +364,32 @@ nxtScanLine:
 
         dex
         bpl nxtDigitLine
-
-        sta WSYNC
+        sta WSYNC       
 
         ;end of digits panel
         lda #%00000000; clear score mode 
         sta CTRLPF; -> CTRLPF
-
+        
         lda #0
         sta PF0
         sta PF1
-
         sta GRP0
         sta GRP1        
         sta WSYNC	; add extra line to keep simetry with the top	
         sta WSYNC
+        
+
+        ldx #5
+        lda GradientColorBK,x		        
+        sta COLUBK
+        sta WSYNC
+        sta WSYNC
+                
+        lda #0
         sta COLUBK
 
         ; Wait for timer to finish
-        ;TIMER_WAIT
+        TIMER_WAIT
 
 ;===============================================================================
 ; Overscan
@@ -824,7 +841,9 @@ CollisionP1:
         ;ora TempP0
         ;sta Scores
         
-        ;flag to reset the turn
+        rts;flag to reset the turn
+        
+        
         lda #$FF
         sta Controls   
         inc Scores
@@ -1038,17 +1057,17 @@ DigitsBitmap
         .byte $EE,$22,$EE,$AA,$EE;9
 	    
 GradientColorBK
-        .byte #$60
-        .byte #$62
-        .byte #$64
-        .byte #$66
+	.byte #$64        
+	.byte #$66
         .byte #$68
-        .byte #$6A
-        .byte #$6C  
-				
+        .byte #$66
+        .byte #$64
+        
+	.byte #$62	; edge
+        
 GradientColorGrid     
         .byte #0
-        .byte #0;80
+        .byte #0
         .byte #0
         .byte #0
         .byte #80
