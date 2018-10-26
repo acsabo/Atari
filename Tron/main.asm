@@ -30,6 +30,11 @@ SpriteHeight	equ 8
 MaxRows		equ 18
 PARP0 		equ 0
 PARP1		equ 1
+INITIAL_STATE   equ 0
+
+TXT_GETREAD     equ 0
+TXT_PLAYER0     equ 72
+TXT_PLAYER1     equ 144
  
 ;===============================================================================
 ; Define RAM Usage
@@ -64,12 +69,8 @@ Player1XPrev	.byte
 Player0YPrev	.byte
 Player1YPrev	.byte
 
-
-
 Scores		.byte
 Controls	.byte
-
-
 	       
 ;===============================================================================
 ; Define Start of Cartridge
@@ -80,15 +81,24 @@ Controls	.byte
     
     ; 2K ROM starts at $F800, 4K ROM starts at $F000
     ORG $F800
-
-
-	
-InitSystem
-        ; CLEAN_START is a macro found in macro.h
-        ; it sets all RAM, TIA registers and CPU registers to 0
-        CLEAN_START
+     
+ResetGame subroutine	
+        ;init Score
+        lda #$00
+        sta Scores
+        rts
         
-ResetTurn      
+ResetPositions subroutine
+        ;init grid mem
+        ldy #0
+        lda #$00
+        ldx #114
+initGrid:
+        sta PF0_left,y	
+        iny
+        dex
+        bne initGrid    
+
         ;player position
         lda #4
         sta Player0X
@@ -108,60 +118,25 @@ ResetTurn
         lda #36
         sta Player1Y
         sta Player1YPrev
-
-        ;init Score
-        ;lda #$00
-        ;sta Scores
-
-        ;init grid mem
-        ldy #0
-        lda #$00
-        ldx #114
-initGrid:
-        sta PF0_left,y	
-        iny
-        dex
-        bne initGrid    
+        rts
         
-        ;lda #$40
-        ;sta COLUPF            
+InitSystem
+        ; CLEAN_START is a macro found in macro.h
+        ; it sets all RAM, TIA registers and CPU registers to 0
+        CLEAN_START
         
-        ;set init directions
-        lda CRTP0RIGHT
-        ora CRTP1LEFT
+        lda INITIAL_STATE
         sta Controls
+        
+	jsr ResetPositions
+
         
 ;===============================================================================
 ; Main Program Loop
 ;===============================================================================
 
 Main:
-
-	;if any collision reset the turn
-        lda Controls
-        cmp #$FF
-        ;beq NewTurn
-        ;lda Controls
-        ;cmp #$00
-        bne skipReset
-        jmp ResetTurn
-        ;jmp OSwait
-skipReset:
-
-;===============================================================================
-; CHECKING SWITCHES
-;===============================================================================
-
-ProcessSwitches:
-        lda SWCHB       ; load in the state of the switches
-        lsr             ; D0 is now in C
-        bcs skipSwitches    	; if D0 was on, the RESET switch was not held       
-        CLEAN_START
-        jsr InitSystem
-        jmp OSwait
-        
-skipSwitches:     
-
+t
 ;===============================================================================
 ; Vertical Sync
 ; -------------
@@ -222,8 +197,8 @@ Kernel
         lda GradientColorGrid,x
         sta COLUBK
 
-        lda #$40
-        sta COLUPF        
+        ;lda #$40
+        ;sta COLUPF        
 
         lda Player0Y
         lsr        
@@ -325,8 +300,7 @@ RowsEnd
         sta WSYNC
         sta WSYNC
         sta WSYNC
-        sta WSYNC
-        
+       
          
 ;===============================================================================
 ; Scoreboard
@@ -410,7 +384,7 @@ nxtScanLine:
         ; generating and adjust accordingly.
         lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
         sta TIM64T  ; set timer to go off in 27 scanlines
-
+   
 
         ;-------------------
         sta HMCLR	; reset the old horizontal position
@@ -424,15 +398,54 @@ nxtScanLine:
         sta WSYNC
         sta HMOVE	; gotta apply HMOVE        
         ;-------------------
+        
+;===============================================================================
+; CHECKING SWITCHES
+;===============================================================================
 
-        ldx PARP0
-        jsr CheckCollision
+ProcessSwitches:
+        lda SWCHB       ; load in the state of the switches
+        lsr             ; D0 is now in C
+        bcs skipSwitches    	; if D0 was on, the RESET switch was not held       
+   
+	jsr ResetGame
+        
+ResetTurn:        
+        jsr ResetPositions
+        
+        ;set init directions
+        lda CRTP0RIGHT
+        ora CRTP1LEFT
+        sta Controls
+        
+        jmp OSwait        
+skipSwitches:
 
-        ldx PARP1
-        jsr CheckCollision
-        sta CXCLR	; clear collision detection for this frame
 
+;===============================================================================
+; CHECKING SWITCHES
+;===============================================================================
 
+	;if in start mode 
+        lda Controls
+        
+        cmp #$FF
+        beq ResetTurn
+        
+        lda Controls        
+        bne SkipDrawGetReady
+        
+        ldy #TXT_GETREAD
+        ;ldy #TXT_PLAYER0
+        ;ldy #TXT_PLAYER1
+        
+        jsr DrawGetReady
+        jmp OSwait
+        
+SkipDrawGetReady:   
+
+        lda #$40
+        sta COLUPF     
 
         ldy Player0YPrev
         ldx Player0XPrev
@@ -443,25 +456,28 @@ nxtScanLine:
         ldx Player1XPrev
         jsr UpdateGrid       
 
+     	;------------------------
+        ldy PARP0
+        jsr UpdateJoystickStatus
 
+        ldy PARP1        
+        jsr UpdateJoystickStatus
+        ;------------------------
         ldy PARP0
         jsr MovePlayerAround
 
         ldy PARP1        
-        jsr MovePlayerAround        
+        jsr MovePlayerAround     
+        ;------------------------        
+        ldx PARP0
+        jsr CheckCollision
 
-        ldy PARP0
-        jsr UpdateJoystickStatus
+        ldx PARP1
+        jsr CheckCollision
+        sta CXCLR	; clear collision detection for this frame
 
-        ldy PARP1        
-        jsr UpdateJoystickStatus
-        
+    
         ;jsr UpdateIAPlayer
-
-        ;jsr DrawGetReady	; there is not enought time for this here 
-  
-
-
 
 ;===============================================================================
 ; Restaring game loop
@@ -473,10 +489,58 @@ OSwait:
         lda INTIM   ; Check the timer
         bne OSwait  ; Branch if its Not Equal to 0
 
-
         jmp Main            ; JuMP to Main
 
 
+;===============================================================================
+; DrawGetReady
+; --------------
+;
+;===============================================================================
+DrawGetReady subroutine
+        ldx #12
+doLoop123:
+        ; fill left side
+        lda TextPanel,y 
+        ora PF0_left,x
+        sta PF0_left,x
+        iny
+
+        lda TextPanel,y
+        ora PF1_left,x
+        sta PF1_left,x
+        iny
+
+        lda TextPanel,y
+        ora PF2_left,x
+        sta PF2_left,x
+        iny
+
+        ; fill right side
+        lda TextPanel,y
+        ora PF0_right,x
+        sta PF0_right,x
+        iny
+
+        lda TextPanel,y
+        ora PF1_right,x 
+        sta PF1_right,x  
+        iny
+
+        lda TextPanel,y
+        ora PF2_right,x   
+        sta PF2_right,x 
+        iny
+
+        dex        
+        bne doLoop123
+        
+        ;reusing variable 
+        inc Player1XPrev
+        lda Player1XPrev
+        sta COLUPF   
+        
+	rts
 
 ;===============================================================================
 ; UpdateJoystick
@@ -615,67 +679,6 @@ SkipMoveLeft
         sta Player0YPrev,y        
 SkipMoveRight	
         rts
-
-;===============================================================================
-; DrawGetReady
-; --------------
-;
-;===============================================================================
-DrawGetReady subroutine
-        ldy #0        
-        ldx #15        
-doLoop123:
-
-        ; fill left side
-        lda GetReadyWording,y 
-        ora PF0_left,x
-        sta PF0_left,x
-        iny
-
-        lda GetReadyWording,y
-        ora PF1_left,x
-        sta PF1_left,x
-        iny
-
-        lda GetReadyWording,y
-        ora PF2_left,x
-        sta PF2_left,x
-        iny
-
-        ; fill right side
-        lda GetReadyWording,y
-        ora PF0_right,x
-        sta PF0_right,x
-        iny
-
-        lda GetReadyWording,y
-        ora PF1_right,x 
-        sta PF1_right,x  
-        iny
-
-        lda GetReadyWording,y
-        ora PF2_right,x   
-        sta PF2_right,x        
-
-        dex        
-        iny
-
-        cpy #67
-        bmi doLoop123
-
-        ;lda #$43
-        ;sta COLUPF  
-
-        ;lda Scores
-        ;sta COLUPF   
-        ;inc Scores
-
-        ;inc Player0X
-
-        ;dec Player1X
-
-        rts
-        
 ;===============================================================================
 ; SetHorizPos
 ; --------------
@@ -798,8 +801,7 @@ SkipP1:
         bcs CollisionPlayer
 
         ;or if collision in X
-        lda Player0X,x
-        
+        lda Player0X,x        
         sec
         sbc Player0XPrev,x
         cmp #6
@@ -811,7 +813,9 @@ SkipP1:
         sbc Player0X,x
         cmp #6
         bpl CollisionPlayer 
-        rts
+        
+        
+        jmp NoCollisionAtAll
         
 CollisionPlayer:
         ; Make a little sound
@@ -828,7 +832,6 @@ CollisionPlayer:
         beq CollisionP0
 
 CollisionP1:	
-	
 	; updating Score
         ;lda Scores
         ;and #$0F;CRTP0MERGE,y       
@@ -841,7 +844,7 @@ CollisionP1:
         ;ora TempP0
         ;sta Scores
         
-        rts;flag to reset the turn
+        ;flag to reset the turn
         
         
         lda #$FF
@@ -850,7 +853,8 @@ CollisionP1:
         rts
 
 CollisionP0:      
-	rts
+	;rts; REMOVE THIS
+        
 	; updating Score
         lda Scores
         and #$0F;CRTP0MERGE,y 
@@ -915,10 +919,10 @@ CollisionLeft:
 NoCollisionAtAll:      
 
         lda Player0Y,x
-        lsr
-        lsr
-        asl
-        asl        
+        ;lsr
+        ;lsr
+        ;asl
+        ;asl        
         sta Player0YPrev,x
         rts
 
@@ -1075,8 +1079,9 @@ GradientColorGrid
         .byte #0
         .byte #0
         
-        
-GetReadyWording
+
+TextPanel
+;TextTextGetReady
         .byte #$00,#$00,#$00,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
         .byte #$00,#$00,#$42,#$20,#$80,#$00
@@ -1089,8 +1094,33 @@ GetReadyWording
         .byte #$00,#$03,#$CC,#$50,#$BA,#$00
         .byte #$00,#$02,#$45,#$50,#$90,#$00
         .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
-                                
-
+;TextPlayer0Wins
+        .byte #$00,#$00,#$00,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
+        .byte #$00,#$00,#$42,#$20,#$80,#$00
+        .byte #$00,#$00,#$DA,#$30,#$80,#$00
+        .byte #$00,#$00,#$52,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$30,#$80,#$00
+        .byte #$00,#$00,#$00,#$00,#$02,#$00
+        .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
+        .byte #$00,#$02,#$45,#$50,#$AA,#$00
+        .byte #$00,#$03,#$CC,#$50,#$BA,#$00
+        .byte #$00,#$02,#$45,#$50,#$90,#$00
+        .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
+;TextPlayer1Wins
+        .byte #$00,#$00,#$00,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
+        .byte #$00,#$00,#$42,#$20,#$80,#$00
+        .byte #$00,#$00,#$DA,#$30,#$80,#$00
+        .byte #$00,#$00,#$52,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$30,#$80,#$00
+        .byte #$00,#$00,#$00,#$00,#$02,#$00
+        .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
+        .byte #$00,#$02,#$45,#$50,#$AA,#$00
+        .byte #$00,#$03,#$CC,#$50,#$BA,#$00
+        .byte #$00,#$02,#$45,#$50,#$90,#$00
+        .byte #$00,#$02,#$5D,#$D0,#$12,#$00           
+        
 RandomDirP1   
 	.byte #%00000100;LEFT
 	.byte #%00000001;UP
