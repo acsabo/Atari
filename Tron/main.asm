@@ -31,10 +31,15 @@ MaxRows		equ 18
 PARP0 		equ 0
 PARP1		equ 1
 INITIAL_STATE   equ 0
+P0WINS_STATE	equ 254
+P1WINS_STATE	equ 253
+NOWINS_STATE	equ 252
+RESET_STATE	equ 255
 
 TXT_GETREAD     equ 0
 TXT_PLAYER0     equ 72
 TXT_PLAYER1     equ 144
+ROW_SHIFT	equ 3
  
 ;===============================================================================
 ; Define RAM Usage
@@ -427,18 +432,32 @@ skipSwitches:
 ;===============================================================================
 
 	;if in start mode 
-        lda Controls
-        
-        cmp #$FF
+        lda Controls        
+        cmp #RESET_STATE
         beq ResetTurn
         
+        lda Controls
+        cmp #P0WINS_STATE
+        bne SkipP0Wins
+
+        ldy #TXT_PLAYER0
+        jsr DrawGetReady
+        jmp OSwait        
+SkipP0Wins:
+
+        lda Controls
+        cmp #P1WINS_STATE
+        bne SkipP1Wins
+
+        ldy #TXT_PLAYER1
+        jsr DrawGetReady
+        jmp OSwait        
+SkipP1Wins:
+
         lda Controls        
         bne SkipDrawGetReady
         
         ldy #TXT_GETREAD
-        ;ldy #TXT_PLAYER0
-        ;ldy #TXT_PLAYER1
-        
         jsr DrawGetReady
         jmp OSwait
         
@@ -502,34 +521,34 @@ DrawGetReady subroutine
 doLoop123:
         ; fill left side
         lda TextPanel,y 
-        ora PF0_left,x
-        sta PF0_left,x
+        ora PF0_left,x+ROW_SHIFT
+        sta PF0_left,x+ROW_SHIFT
         iny
 
         lda TextPanel,y
-        ora PF1_left,x
-        sta PF1_left,x
+        ora PF1_left,x+ROW_SHIFT
+        sta PF1_left,x+ROW_SHIFT
         iny
 
         lda TextPanel,y
-        ora PF2_left,x
-        sta PF2_left,x
+        ora PF2_left,x+ROW_SHIFT
+        sta PF2_left,x+ROW_SHIFT
         iny
 
         ; fill right side
         lda TextPanel,y
-        ora PF0_right,x
-        sta PF0_right,x
+        ora PF0_right,x+ROW_SHIFT
+        sta PF0_right,x+ROW_SHIFT
         iny
 
         lda TextPanel,y
-        ora PF1_right,x 
-        sta PF1_right,x  
+        ora PF1_right,x+ROW_SHIFT
+        sta PF1_right,x+ROW_SHIFT
         iny
 
         lda TextPanel,y
-        ora PF2_right,x   
-        sta PF2_right,x 
+        ora PF2_right,x+ROW_SHIFT
+        sta PF2_right,x+ROW_SHIFT
         iny
 
         dex        
@@ -831,33 +850,11 @@ CollisionPlayer:
         cpx PARP0
         beq CollisionP0
 
-CollisionP1:	
-	; updating Score
-        ;lda Scores
-        ;and #$0F;CRTP0MERGE,y       
-
-        ;adc #1
-    
-        ;sta TempP0
-        ;lda Scores
-        ;and #$0F;and CRTP0MERGE,y        
-        ;ora TempP0
-        ;sta Scores
-        
-        ;flag to reset the turn
-        
-        
-        lda #$FF
-        sta Controls   
-        inc Scores
-        rts
-
-CollisionP0:      
+CollisionP1:
 	;rts; REMOVE THIS
-        
 	; updating Score
         lda Scores
-        and #$0F;CRTP0MERGE,y 
+        ;and #$F0
         lsr
         lsr
         lsr
@@ -867,14 +864,47 @@ CollisionP0:
         asl
         asl
         asl
+        
+        sta TempP0
         lda Scores
-        ;and CRTP0MERGE,y        
+        and #$0F
         ora TempP0
-        sta Scores  
+        sta Scores
+        
+        lda TempP0
+        cmp #144; 9 << 4
+        bcc SkipP1Inc
         
         ;flag to reset the turn
-        lda #$FF
+        lda #P1WINS_STATE
         sta Controls
+        rts        
+SkipP1Inc: 
+        ;flag to reset the turn
+        lda #RESET_STATE
+        sta Controls                
+        rts
+
+CollisionP0:     
+	
+        ; updating Score
+	lda Scores
+        sta TempP0
+        inc TempP0
+        lda TempP0
+        sta Scores
+        
+        cmp #9
+        bcc SkipP0Inc
+        
+        ;flag to reset the turn
+        lda #P0WINS_STATE
+        sta Controls
+        rts        
+SkipP0Inc: 
+        ;flag to reset the turn
+        lda #RESET_STATE
+        sta Controls                
         rts
         
 PossibleCollision:
