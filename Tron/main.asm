@@ -35,12 +35,18 @@ P0WINS_STATE	equ 254
 P1WINS_STATE	equ 253
 NOWINS_STATE	equ 252
 RESET_STATE	equ 255
+COUNTDOWN_STATE equ 128
+
+COUNTDOWN_VALUE	equ 60
 
 TXT_GETREAD     equ 0
 TXT_PLAYER0     equ 72
 TXT_PLAYER1     equ 144
-ROW_SHIFT	equ 3
- 
+
+DGT_1		equ 0
+ROW_SHIFT1	equ 3
+ROW_SHIFT2	equ 6
+
 ;===============================================================================
 ; Define RAM Usage
 ;===============================================================================
@@ -141,7 +147,7 @@ InitSystem
 ;===============================================================================
 
 Main:
-t
+
 ;===============================================================================
 ; Vertical Sync
 ; -------------
@@ -268,8 +274,7 @@ SkipLine
         dex
         bne RowsHeightLoop  	; Branch if Not Equal to 0    
 
-        dey  
-
+        dey
         bpl PatternChanged	; NEXT LINE OF THE GRID
         
 RowsEnd        
@@ -392,7 +397,7 @@ nxtScanLine:
    
 
         ;-------------------
-        sta HMCLR	; reset the old horizontal position
+        sta HMCLR		; reset the old horizontal position
 
         ldx PARP0
         jsr SetHorizPos
@@ -401,7 +406,7 @@ nxtScanLine:
         jsr SetHorizPos     
 
         sta WSYNC
-        sta HMOVE	; gotta apply HMOVE        
+        sta HMOVE		; gotta apply HMOVE        
         ;-------------------
         
 ;===============================================================================
@@ -409,11 +414,21 @@ nxtScanLine:
 ;===============================================================================
 
 ProcessSwitches:
-        lda SWCHB       ; load in the state of the switches
-        lsr             ; D0 is now in C
+        lda SWCHB       	; load in the state of the switches
+        lsr             	; D0 is now in C
         bcs skipSwitches    	; if D0 was on, the RESET switch was not held       
    
-	jsr ResetGame
+	jsr ResetGame		; prepare game state
+        jsr ResetPositions	; reset the grid
+       
+        lda #COUNTDOWN_STATE	; change state to countdown
+        sta Controls
+        
+        lda #20			; set initial countdown to 3
+        sta Player0XPrev; start from 3        
+        lda #COUNTDOWN_VALUE
+        sta Player1XPrev; restart timer
+        jmp OSwait  
         
 ResetTurn:        
         jsr ResetPositions
@@ -441,7 +456,7 @@ skipSwitches:
         bne SkipP0Wins
 
         ldy #TXT_PLAYER0
-        jsr DrawGetReady
+        jsr DrawText
         jmp OSwait        
 SkipP0Wins:
 
@@ -450,18 +465,28 @@ SkipP0Wins:
         bne SkipP1Wins
 
         ldy #TXT_PLAYER1
-        jsr DrawGetReady
+        jsr DrawText
         jmp OSwait        
 SkipP1Wins:
 
         lda Controls        
+        cmp #INITIAL_STATE
         bne SkipDrawGetReady
         
         ldy #TXT_GETREAD
-        jsr DrawGetReady
+        jsr DrawText                
         jmp OSwait
         
 SkipDrawGetReady:   
+
+        lda Controls        
+        cmp #COUNTDOWN_STATE
+        bne SkipCountdown
+        
+        jsr DrawCountdown        
+        jmp OSwait
+        
+SkipCountdown:
 
         lda #$40
         sta COLUPF     
@@ -512,54 +537,116 @@ OSwait:
 
 
 ;===============================================================================
-; DrawGetReady
+; DrawText
 ; --------------
 ;
 ;===============================================================================
-DrawGetReady subroutine
-        ldx #12
-doLoop123:
+DrawText subroutine
+	ldx #12
+doLoop:
         ; fill left side
         lda TextPanel,y 
-        ora PF0_left,x+ROW_SHIFT
-        sta PF0_left,x+ROW_SHIFT
+        ;ora PF0_left,x+ROW_SHIFT1
+        sta PF0_left,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ora PF1_left,x+ROW_SHIFT
-        sta PF1_left,x+ROW_SHIFT
+        ;ora PF1_left,x+ROW_SHIFT1
+        sta PF1_left,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ora PF2_left,x+ROW_SHIFT
-        sta PF2_left,x+ROW_SHIFT
+        ;ora PF2_left,x+ROW_SHIFT1
+        sta PF2_left,x+ROW_SHIFT1
         iny
 
         ; fill right side
         lda TextPanel,y
-        ora PF0_right,x+ROW_SHIFT
-        sta PF0_right,x+ROW_SHIFT
+        ;ora PF0_right,x+ROW_SHIFT1
+        sta PF0_right,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ora PF1_right,x+ROW_SHIFT
-        sta PF1_right,x+ROW_SHIFT
+        ;ora PF1_right,x+ROW_SHIFT1
+        sta PF1_right,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ora PF2_right,x+ROW_SHIFT
-        sta PF2_right,x+ROW_SHIFT
+        ;ora PF2_right,x+ROW_SHIFT1
+        sta PF2_right,x+ROW_SHIFT1
         iny
 
         dex        
-        bne doLoop123
+        bne doLoop
         
         ;reusing variable 
         inc Player1XPrev
         lda Player1XPrev
         sta COLUPF   
         
+	rts      
+        
+
+;===============================================================================
+; Draw Contdown digits
+; --------------
+; Value will be put in PF2 PF0 in assynchronous grid
+;===============================================================================             
+DrawCountdown subroutine
+	ldx #5
+        
+        ldy Player1XPrev
+        dey
+        beq DecCountdown 
+        dec Player1XPrev     
+        
+        ldy Player0XPrev
+
+doLoop_:        
+        ; fill left side
+        lda #00
+        sta PF0_left,x+ROW_SHIFT2
+        sta PF1_left,x+ROW_SHIFT2
+        lda Countdown,y
+        sta PF2_left,x+ROW_SHIFT2
+        iny
+
+        ; fill right side
+        lda Countdown,y
+        sta PF0_right,x+ROW_SHIFT2
+        iny
+
+	lda #00
+        sta PF1_right,x+ROW_SHIFT2
+        sta PF2_right,x+ROW_SHIFT2
+        
+        dex        
+        bne doLoop_
+
+        lda #$65
+        sta COLUPF   
+        rts
+        
+DecCountdown:
+	ldy Player0XPrev        
+        dey
+        cpy #0
+        bmi SkipCountStatus        
+
+	lda Player0XPrev 
+        ;sec
+        sbc #10
+        sta Player0XPrev; jump to the next digt
+        
+        lda #COUNTDOWN_VALUE
+        sta Player1XPrev; restart timer
 	rts
+SkipCountStatus:        
+        
+        lda #RESET_STATE
+        sta Controls        
+        
+	rts        
 
 ;===============================================================================
 ; UpdateJoystick
@@ -1095,8 +1182,7 @@ GradientColorBK
 	.byte #$66
         .byte #$68
         .byte #$66
-        .byte #$64
-        
+        .byte #$64        
 	.byte #$62	; edge
         
 GradientColorGrid     
@@ -1112,12 +1198,14 @@ GradientColorGrid
 
 TextPanel
 ;TextTextGetReady
+	;GET
         .byte #$00,#$00,#$00,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
         .byte #$00,#$00,#$42,#$20,#$80,#$00
         .byte #$00,#$00,#$DA,#$30,#$80,#$00
         .byte #$00,#$00,#$52,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$30,#$80,#$00
+        ;READY
         .byte #$00,#$00,#$00,#$00,#$02,#$00
         .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
         .byte #$00,#$02,#$45,#$50,#$AA,#$00
@@ -1131,6 +1219,7 @@ TextPanel
         .byte #$00,#$00,#$DA,#$30,#$80,#$00
         .byte #$00,#$00,#$52,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$30,#$80,#$00
+        
         .byte #$00,#$00,#$00,#$00,#$02,#$00
         .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
         .byte #$00,#$02,#$45,#$50,#$AA,#$00
@@ -1144,13 +1233,35 @@ TextPanel
         .byte #$00,#$00,#$DA,#$30,#$80,#$00
         .byte #$00,#$00,#$52,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$30,#$80,#$00
+        
         .byte #$00,#$00,#$00,#$00,#$02,#$00
         .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
         .byte #$00,#$02,#$45,#$50,#$AA,#$00
         .byte #$00,#$03,#$CC,#$50,#$BA,#$00
         .byte #$00,#$02,#$45,#$50,#$90,#$00
         .byte #$00,#$02,#$5D,#$D0,#$12,#$00           
-        
+
+Countdown  ;PF2  PF0 
+	;Number 1
+	.byte #$80,#$00
+	.byte #$80,#$00
+	.byte #$80,#$00
+	.byte #$80,#$00
+	.byte #$80,#$00
+	;Number 2
+	.byte #$C0,#$10
+	.byte #$00,#$10
+	.byte #$80,#$00
+	.byte #$40,#$00
+	.byte #$C0,#$10
+	;Number 3
+	.byte #$C0,#$10
+	.byte #$00,#$10
+	.byte #$80,#$00
+	.byte #$00,#$10
+	.byte #$C0,#$10
+
+
 RandomDirP1   
 	.byte #%00000100;LEFT
 	.byte #%00000001;UP
