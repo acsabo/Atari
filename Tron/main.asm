@@ -513,11 +513,11 @@ SkipCountdown:
         ldy PARP1        
         jsr MovePlayerAround     
         ;------------------------        
-        ldx PARP0
-        jsr CheckCollision
+        ldy PARP0
+        ;jsr CheckCollision
 
-        ldx PARP1
-        jsr CheckCollision
+        ldy PARP1
+        ;jsr CheckCollision
         sta CXCLR	; clear collision detection for this frame
 
     
@@ -653,12 +653,22 @@ SkipCountStatus:
 ; --------------
 ; Read joystick movement and apply to object 0
 ;===============================================================================        
-UpdateJoystickStatus subroutine      
+UpdateJoystickStatus subroutine     
+        lda Controls
+        and CRTP0HALF,y
+        sta TempP0; store current direction
+        
 	; Move vertically
         ; (up and down are actually reversed since ypos starts at bottom)
         lda CRTP0DOWN,y;Down?
         bit SWCHA
         bne skpDown
+ 
+       	;check the oposite direction
+        lda CRTP0UP,y;UP?
+        bit TempP0                
+        bne skpDown	;avoid going in the oposite direction
+        ;----
         
         lda CRTP0DOWN,y
         sta TempP0
@@ -672,6 +682,12 @@ skpDown:
         bit SWCHA 
         bne skpUp
 
+       	;check the oposite direction
+        lda CRTP0DOWN,y;UP?
+        bit TempP0                
+        bne skpUp	;avoid going in the oposite direction
+        ;----
+
         lda CRTP0UP,y
         sta TempP0
         lda Controls
@@ -682,7 +698,13 @@ skpDown:
 skpUp:
         lda CRTP0LEFT,y;Left?
         bit SWCHA
-        bne skpLeft
+        bne skpLeft        
+        
+       	;check the oposite direction
+        lda CRTP0RIGHT,y;UP?
+        bit TempP0                
+        bne skpLeft	;avoid going in the oposite direction
+        ;----
         
         lda CRTP0LEFT,y
         sta TempP0
@@ -694,7 +716,13 @@ skpUp:
 skpLeft:
         lda CRTP0RIGHT,y;Right?
         bit SWCHA 
-        bne skpRight
+        bne skpRight        
+        
+       	;check the oposite direction
+        lda CRTP0LEFT,y;UP?
+        bit TempP0                
+        bne skpRight	;avoid going in the oposite direction
+        ;----
         
         lda CRTP0RIGHT,y
         sta TempP0
@@ -784,7 +812,8 @@ SkipMoveLeft
 	lda Player0Y,y
         sta Player0YPrev,y        
 SkipMoveRight	
-        rts
+        rts        
+        
 ;===============================================================================
 ; SetHorizPos
 ; --------------
@@ -886,58 +915,38 @@ CheckCollision subroutine
         ;check collisions
         ; Did the player collide with the wall?
         cpx PARP0
-        beq SkipP0        
+        beq SkipCollP0        
         bit CXP1FB
-        bpl PossibleCollision
-        jmp SkipP1
-SkipP0:        
-        bit CXP0FB;x   
-        bpl PossibleCollision        
-SkipP1:         
-        ;if collision in Y
-        lda Player0Y,x
-        ;check collision with the border
-        cmp #1
-        bmi CollisionPlayer
-        cmp #72
-        bpl CollisionPlayer        
-        sec
-        sbc Player0YPrev,x
-        cmp #4
-        bcs CollisionPlayer
-
-        ;or if collision in X
-        lda Player0X,x        
-        sec
-        sbc Player0XPrev,x
-        cmp #6
-        bpl CollisionPlayer
-
-        ;or X < PrevX
-        lda Player0XPrev,x
-        sec
-        sbc Player0X,x
-        cmp #6
-        bpl CollisionPlayer 
+        bpl CollP0
+        jmp SkipCollP1
         
-        
-        jmp NoCollisionAtAll
-        
-CollisionPlayer:
-        ; Make a little sound
-        ;txa
-        lda #45
-        sta AUDF1	; frequency
-        sta AUDF0	; frequency
-        lda #8
-        sta AUDC1
-        sta AUDC0
+SkipCollP0:        
+        bit CXP0FB
+        bpl CollP1        
+SkipCollP1:         
+        rts
 
-        ;Update scores
-        cpx PARP0
-        beq CollisionP0
-
-CollisionP1:
+CollP0:     
+        ; updating Score
+	lda Scores
+        sta TempP0
+        inc TempP0
+        lda TempP0
+        sta Scores
+        
+        cmp #9
+        bcc SkipP0Inc
+        
+        ;flag to reset the turn
+        lda #P0WINS_STATE
+        sta Controls
+        rts        
+SkipP0Inc: 
+        ;flag to reset the turn
+        lda #RESET_STATE
+        sta Controls                
+	rts
+CollP1:        
 	;rts; REMOVE THIS
 	; updating Score
         lda Scores
@@ -971,78 +980,6 @@ SkipP1Inc:
         lda #RESET_STATE
         sta Controls                
         rts
-
-CollisionP0:     
-	
-        ; updating Score
-	lda Scores
-        sta TempP0
-        inc TempP0
-        lda TempP0
-        sta Scores
-        
-        cmp #9
-        bcc SkipP0Inc
-        
-        ;flag to reset the turn
-        lda #P0WINS_STATE
-        sta Controls
-        rts        
-SkipP0Inc: 
-        ;flag to reset the turn
-        lda #RESET_STATE
-        sta Controls                
-        rts
-        
-PossibleCollision:
-
-        ;if moving to the right
-        lda Player0X,x
-        sec
-        sbc Player0XPrev,x
-        cmp #6
-        bcc NoCollisionAtAll  
-
-        ;if moving to the left	
-        lda Player0XPrev,x
-        sec
-        sbc Player0X,x
-        cmp #1
-        bpl CollisionLeft
-        
-        lda Player0X,x
-        sta Player0XPrev,x        
-        
-CollisionRight:
-
-        lda Player0X,x
-        lsr
-        lsr
-        asl
-        asl        
-        sta Player0XPrev,x ; rounded X collision    
-        jmp NoCollisionAtAll
-        
-CollisionLeft:
-
-        lda Player0X,x
-        adc #4 ;needed when moving to the left        
-        lsr
-        lsr
-        asl
-        asl
-        sta Player0XPrev,x ; rounded X collision   
-        
-NoCollisionAtAll:      
-
-        lda Player0Y,x
-        ;lsr
-        ;lsr
-        ;asl
-        ;asl        
-        sta Player0YPrev,x
-        rts
-
 
 ;===============================================================================
 ; UpdateGrid
