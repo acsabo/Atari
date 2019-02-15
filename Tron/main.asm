@@ -36,8 +36,11 @@ P1WINS_STATE	equ 253
 NOWINS_STATE	equ 252
 RESET_STATE	equ 255
 COUNTDOWN_STATE equ 128
-
 COUNTDOWN_VALUE	equ 60
+
+INIT_Player0X	equ 4
+INIT_Player1X	equ 152
+INIT_PlayerY	equ 36
 
 TXT_GETREAD     equ 0
 TXT_PLAYER0     equ 72
@@ -58,6 +61,7 @@ ROW_SHIFT2	equ 6
     ; RAM starts at $80
         ORG $80             
 
+;Defines the grid/matrix to track players movement
 PF0_left	ds 19
 PF1_left	ds 19
 PF2_left	ds 19
@@ -65,23 +69,30 @@ PF0_right	ds 19
 PF1_right	ds 19
 PF2_right	ds 19
 
+;Stores players positions (it will reset each frame)
 TempP0		.byte
 TempP1		.byte
 
+;Players Y coordinates (do not change this order)
 Player0X	.byte
 Player1X	.byte
 
+;Players Y coordinates (do not change this order)
 Player0Y	.byte
 Player1Y	.byte      
 
-Player0XPrev	.byte
-Player1XPrev	.byte
-
-Player0YPrev	.byte
-Player1YPrev	.byte
-
+;Stores the points for both players; it also is used to control the game State
 Scores		.byte
+
+;Keep the last changed direction of the controllers for both players
 Controls	.byte
+
+;Used to control speed and other flags
+Flags		.byte
+
+;Used to control the countdown and text blink
+VarP0		.byte
+VarP1		.byte
 	       
 ;===============================================================================
 ; Define Start of Cartridge
@@ -100,35 +111,31 @@ ResetGame subroutine
         rts
         
 ResetPositions subroutine
-        ;init grid mem
+        ;init grid memory
         ldy #0
         lda #$00
         ldx #114
+        
+        ;resets each grid cells
 initGrid:
         sta PF0_left,y	
         iny
         dex
         bne initGrid    
 
-        ;player position
-        lda #4
+        ;player vertical position on the grid
+        lda #INIT_Player0X
         sta Player0X
-        lda #4
-        sta Player0XPrev
         
-        lda #36
-        sta Player0Y
-        sta Player0YPrev
-
-        ;player position
-        lda #152
+	;player vertical position on the grid
+        lda #INIT_Player1X
         sta Player1X
-        lda #152
-        sta Player1XPrev
-
-        lda #36
+        
+        ;set players horizontal position on the grid
+        lda #INIT_PlayerY
+        sta Player0Y
         sta Player1Y
-        sta Player1YPrev
+
         rts
         
 InitSystem
@@ -247,6 +254,7 @@ doDrawP1:
         jmp SkipLine        ; TO AVOID BLANK LINE
 
 RowsHeightLoop
+
         lda GradientColorGrid,x	; guideline on the grid
         sta WSYNC        
         sta COLUBK
@@ -425,9 +433,9 @@ ProcessSwitches:
         sta Controls
         
         lda #20			; set initial countdown to 3
-        sta Player0XPrev; start from 3        
+        sta VarP0; start from 3        
         lda #COUNTDOWN_VALUE
-        sta Player1XPrev; restart timer
+        sta VarP1; restart timer
         jmp OSwait  
         
 ResetTurn:        
@@ -474,7 +482,8 @@ SkipP1Wins:
         bne SkipDrawGetReady
         
         ldy #TXT_GETREAD
-        jsr DrawText                
+        jsr DrawText
+        
         jmp OSwait
         
 SkipDrawGetReady:   
@@ -491,13 +500,13 @@ SkipCountdown:
         lda #$40
         sta COLUPF     
 
-        ldy Player0YPrev
-        ldx Player0XPrev
+        ldy Player0Y
+        ldx Player0X
         jsr UpdateGrid       
 
 
-        ldy Player1YPrev
-        ldx Player1XPrev
+        ldy Player1Y
+        ldx Player1X
         jsr UpdateGrid       
 
      	;------------------------
@@ -507,20 +516,40 @@ SkipCountdown:
         ldy PARP1        
         jsr UpdateJoystickStatus
         ;------------------------
+        
+        
+        ;MOVE SLOWER, by skeeping some frames 
+        ldy Flags        
+        cpy #0
+        beq SkipMoveAround
+        
+        dey
+        sty Flags
+        
         ldy PARP0
         jsr MovePlayerAround
 
         ldy PARP1        
-        jsr MovePlayerAround     
+        jsr MovePlayerAround   
+        
+	jmp ContinueMoveAround        
+SkipMoveAround:
+
+        ldy #1
+        sty Flags
+ContinueMoveAround:        
+        
         ;------------------------        
         ldy PARP0
         ;jsr CheckCollision
 
         ldy PARP1
         ;jsr CheckCollision
-        sta CXCLR	; clear collision detection for this frame
+        
+        ;Clear collision detection for this frame
+        sta CXCLR
 
-    
+        ;Will use IA to control the other player
         ;jsr UpdateIAPlayer
 
 ;===============================================================================
@@ -546,42 +575,36 @@ DrawText subroutine
 doLoop:
         ; fill left side
         lda TextPanel,y 
-        ;ora PF0_left,x+ROW_SHIFT1
         sta PF0_left,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ;ora PF1_left,x+ROW_SHIFT1
         sta PF1_left,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ;ora PF2_left,x+ROW_SHIFT1
         sta PF2_left,x+ROW_SHIFT1
         iny
 
         ; fill right side
         lda TextPanel,y
-        ;ora PF0_right,x+ROW_SHIFT1
         sta PF0_right,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ;ora PF1_right,x+ROW_SHIFT1
         sta PF1_right,x+ROW_SHIFT1
         iny
 
         lda TextPanel,y
-        ;ora PF2_right,x+ROW_SHIFT1
         sta PF2_right,x+ROW_SHIFT1
         iny
 
         dex        
         bne doLoop
         
-        ;reusing variable 
-        inc Player1XPrev
-        lda Player1XPrev
+        ;reusing variable to cause text blink effect
+        inc VarP0
+        lda VarP0
         sta COLUPF   
         
 	rts      
@@ -595,12 +618,12 @@ doLoop:
 DrawCountdown subroutine
 	ldx #5
         
-        ldy Player1XPrev
+        ldy VarP1
         dey
         beq DecCountdown 
-        dec Player1XPrev     
+        dec VarP1
         
-        ldy Player0XPrev
+        ldy VarP0
 
 doLoop_:        
         ; fill left side
@@ -628,24 +651,23 @@ doLoop_:
         rts
         
 DecCountdown:
-	ldy Player0XPrev        
+	ldy VarP0
         dey
         cpy #0
         bmi SkipCountStatus        
 
-	lda Player0XPrev 
+	lda VarP0
         ;sec
         sbc #10
-        sta Player0XPrev; jump to the next digt
+        sta VarP0	; jump to the next digt
         
         lda #COUNTDOWN_VALUE
-        sta Player1XPrev; restart timer
+        sta VarP1	; restart timer
 	rts
 SkipCountStatus:        
         
         lda #RESET_STATE
-        sta Controls        
-        
+        sta Controls
 	rts        
 
 ;===============================================================================
@@ -764,7 +786,7 @@ MovePlayerAround subroutine
         asl
         asl
         sta Player0X,y 
-        sta Player0XPrev,y
+        ;sta Player0XPrev,y
         rts
 SkipMoveUp
         lda CRTP0UP,y;UP?
@@ -783,7 +805,7 @@ SkipMoveUp
         asl
         asl
         sta Player0X,y 
-        sta Player0XPrev,y       
+        ;sta Player0XPrev,y       
         rts     
 SkipMoveDown
         ; Move horizontally
@@ -798,7 +820,7 @@ SkipMoveDown
         stx Player0X,y
         ;round Y
 	lda Player0Y,y
-        sta Player0YPrev,y        
+        ;sta Player0YPrev,y        
         rts       
 SkipMoveLeft
         lda CRTP0RIGHT,y;Right?
@@ -810,7 +832,7 @@ SkipMoveLeft
         stx Player0X,y      
         ;round Y
 	lda Player0Y,y
-        sta Player0YPrev,y        
+        ;sta Player0YPrev,y        
 SkipMoveRight	
         rts        
         
