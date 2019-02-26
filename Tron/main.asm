@@ -3,14 +3,16 @@
 ;===============================================================================
 
     ; Program:      TRONIC
-    ; Program by:   Adriano C. Sabo
-    ; Last Update:  Semptemper 27, 2018
+    ; By:	    Adriano C. Sabo
+    ; Contact:	    acsabo@hotmail.com
+    ; Last Update:  February 25, 2019
     
 ;===============================================================================
 ; Change Log
 ;===============================================================================
  
     ; 2018.10.27 - generate a stable display
+    ; 2019.02.25 - refactoring players movement on the grid
 
 ;===============================================================================
 ; Initialize dasm
@@ -22,25 +24,30 @@
     ; address space and also removes support for external interrupts.
         PROCESSOR 6502
     
-        include "vcs.h"
+	include "vcs.h"
         include "macro.h"
         include "xmacro.h"
  
+SPEED		equ 8
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
 PARP1		equ 1
 INITIAL_STATE   equ 0
-P0WINS_STATE	equ 254
-P1WINS_STATE	equ 253
-NOWINS_STATE	equ 252
-RESET_STATE	equ 255
+P0WINS_STATE	equ 1
+P1WINS_STATE	equ 2
+NOWINS_STATE	equ 3
+RESET_STATE	equ 4
+
 COUNTDOWN_STATE equ 128
 COUNTDOWN_VALUE	equ 60
 
 INIT_Player0X	equ 4
 INIT_Player1X	equ 152
 INIT_PlayerY	equ 36
+
+COLOR_Player0	equ 132
+COLOR_Player1	equ 20
 
 TXT_GETREAD     equ 0
 TXT_PLAYER0     equ 72
@@ -115,6 +122,9 @@ ResetPositions subroutine
         ldy #0
         lda #$00
         ldx #114
+
+        ;Clear collision detection for this frame
+        sta CXCLR
         
         ;resets each grid cells
 initGrid:
@@ -135,6 +145,9 @@ initGrid:
         lda #INIT_PlayerY
         sta Player0Y
         sta Player1Y
+        
+        ldy #4
+        sty Flags        
 
         rts
         
@@ -148,6 +161,11 @@ InitSystem
         
 	jsr ResetPositions
 
+        ;player color
+        lda #COLOR_Player0
+        sta COLUP0        
+        lda #COLOR_Player1
+        sta COLUP1   
         
 ;===============================================================================
 ; Main Program Loop
@@ -182,11 +200,7 @@ Main:
 
 ;MORE CODE CAN COME IN HERE!!!
 
-        ;player color
-        lda #$84
-        sta COLUP0        
-        lda #$14
-        sta COLUP1    
+ 
 
         ;line delimiter before grid
         lda #$68
@@ -212,7 +226,7 @@ Kernel
         SLEEP 2;10 ; to make timing analysis work out
 
         ;grid color
-        lda GradientColorGrid,x
+        lda #0;GradientColorGrid,x
         sta COLUBK
 
         ;lda #$40
@@ -255,7 +269,7 @@ doDrawP1:
 
 RowsHeightLoop
 
-        lda GradientColorGrid,x	; guideline on the grid
+        lda #0;lda GradientColorGrid,x	; guideline on the grid
         sta WSYNC        
         sta COLUBK
 SkipLine
@@ -500,14 +514,7 @@ SkipCountdown:
         lda #$40
         sta COLUPF     
 
-        ldy Player0Y
-        ldx Player0X
-        jsr UpdateGrid       
 
-
-        ldy Player1Y
-        ldx Player1X
-        jsr UpdateGrid       
 
      	;------------------------
         ldy PARP0
@@ -520,35 +527,44 @@ SkipCountdown:
         
         ;MOVE SLOWER, by skeeping some frames 
         ldy Flags        
-        cpy #0
-        beq SkipMoveAround
-        
         dey
         sty Flags
+
+	bne SkipUpdates 
+
+	;update the grid
+        ldy Player0Y
+        ldx Player0X
+        jsr UpdateGrid       
+
+        ldy Player1Y
+        ldx Player1X
+        jsr UpdateGrid    
         
+        ;update movement
         ldy PARP0
         jsr MovePlayerAround
 
         ldy PARP1        
-        jsr MovePlayerAround   
-        
-	jmp ContinueMoveAround        
-SkipMoveAround:
+        jsr MovePlayerAround
+                
+        ;check collisions
+        ldx PARP0
+        jsr CheckCollision
 
-        ldy #1
+        ldx PARP1
+        jsr CheckCollision    
+
+        
+        ldy #SPEED		;reset move time
         sty Flags
-ContinueMoveAround:        
-        
-        ;------------------------        
-        ldy PARP0
-        ;jsr CheckCollision
+                
+SkipUpdates:        
 
-        ldy PARP1
-        ;jsr CheckCollision
-        
         ;Clear collision detection for this frame
         sta CXCLR
-
+	;------------------------        
+       
         ;Will use IA to control the other player
         ;jsr UpdateIAPlayer
 
@@ -777,16 +793,10 @@ MovePlayerAround subroutine
         cpx #1
         bcc SkipMoveUp
         dex
-        stx Player0Y,y        
-        
-        ;round X
-	lda Player0X,y
-        lsr
-        lsr
-        asl
-        asl
-        sta Player0X,y 
-        ;sta Player0XPrev,y
+        dex
+        dex
+        dex
+        stx Player0Y,y
         rts
 SkipMoveUp
         lda CRTP0UP,y;UP?
@@ -796,31 +806,25 @@ SkipMoveUp
         cpx #72
         bcs SkipMoveDown
         inx
+        inx
+        inx
+        inx
         stx Player0Y,y
-        
-        ;round X
-	lda Player0X,y
-        lsr
-        lsr
-        asl
-        asl
-        sta Player0X,y 
-        ;sta Player0XPrev,y       
         rts     
 SkipMoveDown
         ; Move horizontally
         ldx Player0X,y
         lda CRTP0LEFT,y;Left?
-        
         bit TempP0
         beq SkipMoveLeft
         cpx #1
         bcc SkipMoveLeft
-        dex        
+        dex
+        dex
+        dex
+        dex
         stx Player0X,y
-        ;round Y
 	lda Player0Y,y
-        ;sta Player0YPrev,y        
         rts       
 SkipMoveLeft
         lda CRTP0RIGHT,y;Right?
@@ -828,11 +832,12 @@ SkipMoveLeft
         beq SkipMoveRight
         cpx #156
         bcs SkipMoveRight
-        inx        
+        inx
+        inx
+        inx
+        inx
         stx Player0X,y      
-        ;round Y
 	lda Player0Y,y
-        ;sta Player0YPrev,y        
 SkipMoveRight	
         rts        
         
@@ -937,18 +942,23 @@ CheckCollision subroutine
         ;check collisions
         ; Did the player collide with the wall?
         cpx PARP0
-        beq SkipCollP0        
-        bit CXP1FB
-        bpl CollP0
-        jmp SkipCollP1
-        
-SkipCollP0:        
+        bne TryCollP1
         bit CXP0FB
-        bpl CollP1        
+        bpl SkipCollP0
+        ;collision P0 HERE
+        jmp CollP1        
+SkipCollP0:        
+        rts
+                
+TryCollP1:      
+        bit CXP1FB
+        bpl SkipCollP1
+        ;collision P0 HERE
+        jmp CollP0
 SkipCollP1:         
         rts
 
-CollP0:     
+CollP0: 
         ; updating Score
 	lda Scores
         sta TempP0
@@ -962,14 +972,15 @@ CollP0:
         ;flag to reset the turn
         lda #P0WINS_STATE
         sta Controls
-        rts        
+        rts     
 SkipP0Inc: 
+	
         ;flag to reset the turn
         lda #RESET_STATE
         sta Controls                
 	rts
-CollP1:        
-	;rts; REMOVE THIS
+CollP1:    
+	
 	; updating Score
         lda Scores
         ;and #$F0
@@ -982,6 +993,7 @@ CollP1:
         asl
         asl
         asl
+        ;and #$F0
         
         sta TempP0
         lda Scores
@@ -998,6 +1010,7 @@ CollP1:
         sta Controls
         rts        
 SkipP1Inc: 
+	
         ;flag to reset the turn
         lda #RESET_STATE
         sta Controls                
