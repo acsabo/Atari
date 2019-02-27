@@ -24,7 +24,7 @@
     ; address space and also removes support for external interrupts.
         PROCESSOR 6502
     
-	include "vcs.h"
+		include "vcs.h"
         include "macro.h"
         include "xmacro.h"
  
@@ -95,7 +95,10 @@ Scores		.byte
 Controls	.byte
 
 ;Used to control speed and other flags
-Flags		.byte
+SpeedCounter	.byte
+
+;Game status Control
+GameState	.byte
 
 ;Used to control the countdown and text blink
 VarP0		.byte
@@ -147,7 +150,7 @@ initGrid:
         sta Player1Y
         
         ldy #4
-        sty Flags        
+        sty SpeedCounter        
 
         rts
         
@@ -157,9 +160,10 @@ InitSystem
         CLEAN_START
         
         lda INITIAL_STATE
-        sta Controls
+        sta GameState
+		sta Controls
         
-	jsr ResetPositions
+		jsr ResetPositions
 
         ;player color
         lda #COLOR_Player0
@@ -226,7 +230,7 @@ Kernel
         SLEEP 2;10 ; to make timing analysis work out
 
         ;grid color
-        lda #0;GradientColorGrid,x
+        lda GradientColorGrid,x
         sta COLUBK
 
         ;lda #$40
@@ -269,7 +273,7 @@ doDrawP1:
 
 RowsHeightLoop
 
-        lda #0;lda GradientColorGrid,x	; guideline on the grid
+        lda GradientColorGrid,x	; guideline on the grid
         sta WSYNC        
         sta COLUBK
 SkipLine
@@ -444,7 +448,7 @@ ProcessSwitches:
         jsr ResetPositions	; reset the grid
        
         lda #COUNTDOWN_STATE	; change state to countdown
-        sta Controls
+        sta GameState
         
         lda #20			; set initial countdown to 3
         sta VarP0; start from 3        
@@ -458,7 +462,8 @@ ResetTurn:
         ;set init directions
         lda CRTP0RIGHT
         ora CRTP1LEFT
-        sta Controls
+        sta GameState
+		sta Controls
         
         jmp OSwait        
 skipSwitches:
@@ -469,11 +474,11 @@ skipSwitches:
 ;===============================================================================
 
 	;if in start mode 
-        lda Controls        
+        lda GameState
         cmp #RESET_STATE
         beq ResetTurn
         
-        lda Controls
+        lda GameState
         cmp #P0WINS_STATE
         bne SkipP0Wins
 
@@ -482,7 +487,7 @@ skipSwitches:
         jmp OSwait        
 SkipP0Wins:
 
-        lda Controls
+        lda GameState
         cmp #P1WINS_STATE
         bne SkipP1Wins
 
@@ -491,7 +496,7 @@ SkipP0Wins:
         jmp OSwait        
 SkipP1Wins:
 
-        lda Controls        
+        lda GameState      
         cmp #INITIAL_STATE
         bne SkipDrawGetReady
         
@@ -502,7 +507,7 @@ SkipP1Wins:
         
 SkipDrawGetReady:   
 
-        lda Controls        
+        lda GameState     
         cmp #COUNTDOWN_STATE
         bne SkipCountdown
         
@@ -526,9 +531,9 @@ SkipCountdown:
         
         
         ;MOVE SLOWER, by skeeping some frames 
-        ldy Flags        
+        ldy SpeedCounter        
         dey
-        sty Flags
+        sty SpeedCounter
 
 	bne SkipUpdates 
 
@@ -557,7 +562,7 @@ SkipCountdown:
 
         
         ldy #SPEED		;reset move time
-        sty Flags
+        sty SpeedCounter
                 
 SkipUpdates:        
 
@@ -683,7 +688,7 @@ DecCountdown:
 SkipCountStatus:        
         
         lda #RESET_STATE
-        sta Controls
+        sta GameState
 	rts        
 
 ;===============================================================================
@@ -778,7 +783,7 @@ skpRight:
 ; MovePlayerAround
 ; --------------
 MovePlayerAround subroutine
-	lda Controls        
+		lda Controls        
         and CRTP0HALF,y
         sta TempP0
 	
@@ -909,18 +914,18 @@ UpdateScoreLine subroutine
         and #$0F
 
         sta TempP0
-
+	
         ;---------- PLAYER 2 SCORE
         lda Scores
         and #$F0
         lsr
         lsr        
         lsr
-        lsr        
-
-        sta TempP1
+        lsr       
+        
+        sta TempP1        
         asl
-        asl        
+        asl       
         adc TempP1	; multiply by 5        
 
         stx TempP1
@@ -938,7 +943,7 @@ UpdateScoreLine subroutine
 ; --------------
 ;
 ;===============================================================================
-CheckCollision subroutine	
+CheckCollision subroutine
         ;check collisions
         ; Did the player collide with the wall?
         cpx PARP0
@@ -961,29 +966,33 @@ SkipCollP1:
 CollP0: 
         ; updating Score
 	lda Scores
-        sta TempP0
-        inc TempP0
-        lda TempP0
+        and #$0F
+        tay
+        iny
+        sty TempP0
+        lda Scores
+        and #$F0
+        ora TempP0
         sta Scores
         
-        cmp #9
+        cpy #9
         bcc SkipP0Inc
         
         ;flag to reset the turn
         lda #P0WINS_STATE
-        sta Controls
+        sta GameState
         rts     
 SkipP0Inc: 
 	
         ;flag to reset the turn
         lda #RESET_STATE
-        sta Controls                
+        sta GameState              
 	rts
 CollP1:    
 	
 	; updating Score
         lda Scores
-        ;and #$F0
+        and #$F0
         lsr
         lsr
         lsr
@@ -993,7 +1002,6 @@ CollP1:
         asl
         asl
         asl
-        ;and #$F0
         
         sta TempP0
         lda Scores
@@ -1001,19 +1009,19 @@ CollP1:
         ora TempP0
         sta Scores
         
-        lda TempP0
-        cmp #144; 9 << 4
+        ldy TempP0
+        cpy #144; 9 << 4
         bcc SkipP1Inc
         
         ;flag to reset the turn
         lda #P1WINS_STATE
-        sta Controls
+        sta GameState
         rts        
 SkipP1Inc: 
 	
         ;flag to reset the turn
         lda #RESET_STATE
-        sta Controls                
+        sta GameState               
         rts
 
 ;===============================================================================

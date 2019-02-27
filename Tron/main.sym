@@ -1,0 +1,208 @@
+--- Symbol List (sorted by symbol)
+0.FREE_BYTES             0000                  
+10.waittimer             f961              (R )
+3.CLEAR_STACK            f82d              (R )
+4.lines                  00c0              (R )
+5.CYCLES                 0002              (R )
+6.CYCLES                 0012              (R )
+7.CYCLES                 0004              (R )
+8.CYCLES                 001a              (R )
+9.CYCLES                 0008              (R )
+AUDC0                    0015                  
+AUDC1                    0016                  
+AUDF0                    0017                  
+AUDF1                    0018                  
+AUDV0                    0019                  
+AUDV1                    001a                  
+BitReprF0                fd0c              (R )
+BitReprF1                fd10              (R )
+BitReprF2                fd18              (R )
+CheckCollision           fbd1              (R )
+CollP0                   fbe5              (R )
+CollP1                   fc03              (R )
+COLOR_Player0            0084              (R )
+COLOR_Player1            0014              (R )
+COLUBK                   0009              (R )
+COLUP0                   0006              (R )
+COLUP1                   0007              (R )
+COLUPF                   0008              (R )
+Controls                 00f9              (R )
+Countdown                fe38              (R )
+COUNTDOWN_STATE          0080              (R )
+COUNTDOWN_VALUE          003c              (R )
+CRTP0DOWN                fd02              (R )
+CRTP0HALF                fd08              (R )
+CRTP0LEFT                fd04              (R )
+CRTP0MERGE               fd0a              (R )
+CRTP0RIGHT               fd06              (R )
+CRTP0UP                  fd00              (R )
+CRTP1DOWN                fd03                  
+CRTP1HALF                fd09                  
+CRTP1LEFT                fd05              (R )
+CRTP1MERGE               fd0b                  
+CRTP1RIGHT               fd07                  
+CRTP1UP                  fd01                  
+CTRLPF                   000a              (R )
+CXBLPF                   0006                  
+CXCLR                    002c              (R )
+CXM0FB                   0004                  
+CXM0P                    0000                  
+CXM1FB                   0005                  
+CXM1P                    0001                  
+CXP0FB                   0002              (R )
+CXP1FB                   0003              (R )
+CXPPMM                   0007                  
+DecCountdown             fa8a              (R )
+DGT_1                    0000                  
+DigitsBitmap             fd20              (R )
+DivideLoop               fb81              (R )
+doDrawP1                 f89a              (R )
+doDrawP2                 f891              (R )
+doLoop                   fa31              (R )
+doLoop_                  fa6a              (R )
+DrawCountdown            fa5f              (R )
+DrawText                 fa2f              (R )
+ENABL                    001f                  
+ENAM0                    001d                  
+ENAM1                    001e                  
+firstHalf                fc34                  
+GameState                00fb              (R )
+GradientColorBK          fd52              (R )
+GradientColorGrid        fd58              (R )
+GRP0                     001b              (R )
+GRP1                     001c              (R )
+HMBL                     0024                  
+HMCLR                    002b              (R )
+HMM0                     0022                  
+HMM1                     0023                  
+HMOVE                    002a              (R )
+HMP0                     0020              (R )
+HMP1                     0021                  
+INIT_Player0X            0004              (R )
+INIT_Player1X            0098              (R )
+INIT_PlayerY             0024              (R )
+initGrid                 f80d              (R )
+INITIAL_STATE            0000              (R )
+InitSystem               f827              (R )
+INPT0                    0008                  
+INPT1                    0009                  
+INPT2                    000a                  
+INPT3                    000b                  
+INPT4                    000c                  
+INPT5                    000d                  
+INTIM                    0284              (R )
+Kernel                   f85c              (R )
+Main                     f843              (R )
+MaxRows                  0012              (R )
+MovePlayerAround         fb21              (R )
+NO_ILLEGAL_OPCODES       0000 ????         (R )
+NOWINS_STATE             0003                  
+NUSIZ0                   0004                  
+NUSIZ1                   0005                  
+nxtDigitLine             f90f              (R )
+nxtScanLine              f918              (R )
+OSwait                   fa25              (R )
+P0WINS_STATE             0001              (R )
+P1WINS_STATE             0002              (R )
+PARP0                    0000              (R )
+PARP1                    0001              (R )
+PatternChanged           f889              (R )
+PF0                      000d              (R )
+pf0_l                    fc34                  
+PF0_left                 0080              (R )
+pf0_r                    fc66                  
+PF0_right                00b9              (R )
+PF1                      000e              (R )
+pf1_l                    fc43              (R )
+PF1_left                 0093              (R )
+pf1_r                    fc75              (R )
+PF1_right                00cc              (R )
+PF2                      000f              (R )
+pf2_l                    fc55              (R )
+PF2_left                 00a6              (R )
+pf2_r                    fc87              (R )
+PF2_right                00df              (R )
+Player0X                 00f4              (R )
+Player0Y                 00f6              (R )
+Player1X                 00f5              (R )
+Player1Y                 00f7              (R )
+ProcessSwitches          f981                  
+RandomDirP1              fe56              (R )
+REFP0                    000b                  
+REFP1                    000c                  
+RESBL                    0014                  
+RESET_STATE              0004              (R )
+ResetGame                f800              (R )
+ResetPositions           f805              (R )
+ResetTurn                f99c              (R )
+RESM0                    0012                  
+RESM1                    0013                  
+RESMP0                   0028                  
+RESMP1                   0029                  
+RESP0                    0010              (R )
+RESP1                    0011                  
+ROW_SHIFT1               0003              (R )
+ROW_SHIFT2               0006              (R )
+RowsEnd                  f8d0                  
+RowsHeightLoop           f8a3              (R )
+RSYNC                    0003                  
+Scores                   00f8              (R )
+SecondHalf               fc63              (R )
+SetHorizPos              fb7a              (R )
+SkipCollP0               fbdc              (R )
+SkipCollP1               fbe4              (R )
+SkipCountdown            f9e8              (R )
+SkipCountStatus          fa9c              (R )
+SkipDrawGetReady         f9dc              (R )
+SkipLine                 f8aa              (R )
+SkipMoveDown             fb4e              (R )
+SkipMoveLeft             fb65              (R )
+SkipMoveRight            fb79              (R )
+SkipMoveUp               fb3c              (R )
+SkipP0Inc                fbfe              (R )
+SkipP0Wins               f9c0              (R )
+SkipP1Inc                fc24              (R )
+SkipP1Wins               f9ce              (R )
+skipSwitches             f9ac              (R )
+SkipUpdates              fa23              (R )
+skpDown                  fac6              (R )
+skpLeft                  fb02              (R )
+skpRight                 fb20              (R )
+skpUp                    fae4              (R )
+SPEED                    0008              (R )
+SpeedCounter             00fa              (R )
+SpriteHeight             0008              (R )
+SWACNT                   0281                  
+SWBCNT                   0283                  
+SWCHA                    0280              (R )
+SWCHB                    0282              (R )
+T1024T                   0297                  
+TempP0                   00f2              (R )
+TempP1                   00f3              (R )
+TextPanel                fd60              (R )
+TIA_BASE_ADDRESS         0000              (R )
+TIA_BASE_READ_ADDRESS    0000              (R )
+TIA_BASE_WRITE_ADDRESS   0000              (R )
+TIM1T                    0294                  
+TIM64T                   0296              (R )
+TIM8T                    0295                  
+TIMINT                   0285                  
+TryCollP1                fbdd              (R )
+TXT_GETREAD              0000              (R )
+TXT_PLAYER0              0048              (R )
+TXT_PLAYER1              0090              (R )
+UpdateGrid               fc29              (R )
+UpdateIAPlayer           fb90                  
+UpdateJoystickStatus     faa1              (R )
+UpdateScoreLine          fba0              (R )
+VarP0                    00fc              (R )
+VarP1                    00fd              (R )
+VBLANK                   0001              (R )
+VDELBL                   0027                  
+VDELP0                   0025                  
+VDELP1                   0026                  
+VERSION_MACRO            006a                  
+VERSION_VCS              0069                  
+VSYNC                    0000              (R )
+WSYNC                    0002              (R )
+--- End of Symbol List.
