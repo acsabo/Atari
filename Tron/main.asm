@@ -28,7 +28,7 @@
 	include "macro.h"
 	include "xmacro.h"
  
-SPEED		equ 12
+SPEED		equ 4
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
@@ -39,6 +39,7 @@ P0WINS_STATE	equ 1
 P1WINS_STATE	equ 2
 RESET_STATE	equ 3
 START_STATE	equ 4
+PAUSE_STATE	equ 5
 NOWINR_STATE	equ $99 ; tie
 
 ;WAIT_STATE	equ 5
@@ -501,8 +502,22 @@ SkipSwitches:
 SkipTie:
 
 	;load the Game Status	
-        lda GameState           
+        lda GameState 
         
+        cmp #PAUSE_STATE
+        bne SkipPause
+        
+        ;---- CONTINUE WHEN BUTTON IS PRESSED
+        bit INPT4
+        bmi SkipPause
+	lda #RESET_STATE;#COUNTDOWN_STATE;#INITIAL_STATE
+        ;sta GameState
+         
+	;----      
+        
+        ;jmp OSwait
+        
+SkipPause:        
         ;if in start mode 
         cmp #RESET_STATE
         beq ResetTurn
@@ -1042,7 +1057,7 @@ SkipP0Inc:
         beq DoNothing	
         
         ;flag to reset the turn
-        lda #RESET_STATE#;WAIT_STATE;#RESET_STATE
+        lda #PAUSE_STATE;#RESET_STATE#;WAIT_STATE;#RESET_STATE
         sta GameState              
 	rts
 CollP1:    
@@ -1083,7 +1098,7 @@ SkipP1Inc:
         beq DoNothing
         	
         ;flag to reset the turn
-        lda #RESET_STATE;#WAIT_STATE;#RESET_STATE
+        lda #PAUSE_STATE;#RESET_STATE;#WAIT_STATE;#RESET_STATE
         sta GameState    
 DoNothing:        
         rts
@@ -1259,34 +1274,34 @@ TextPanel
         .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
 ;TextPlayer0Wins
 	;Player 1
-        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
-        .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
-        .byte #$00,#$00,#$42,#$20,#$80,#$00
-        .byte #$00,#$00,#$DA,#$30,#$80,#$00
-        .byte #$00,#$00,#$52,#$00,#$80,#$00
-        .byte #$00,#$00,#$DE,#$30,#$80,#$00
+	.byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1
+        .byte #$00,#$2A,#$54,#$50,#$28,#$01; line #2
+        .byte #$00,#$2A,#$54,#$50,#$28,#$01; line #3
+        .byte #$00,#$3A,#$DC,#$D0,#$30,#$01; line #4
+        .byte #$00,#$22,#$94,#$40,#$28,#$01; line #5
+        .byte #$00,#$23,#$95,#$C0,#$A9,#$03; line #6
         ;Wins
-        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
-        .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
-        .byte #$00,#$02,#$45,#$50,#$AA,#$00
-        .byte #$00,#$03,#$CC,#$50,#$BA,#$00
-        .byte #$00,#$02,#$45,#$50,#$90,#$00
-        .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
+        .byte #$00,#$00,#$00,#$00,#$00,#$00; line #12
+        .byte #$00,#$00,#$51,#$90,#$70,#$00; line #13
+        .byte #$00,#$00,#$51,#$90,#$40,#$00; line #14
+        .byte #$00,#$00,#$55,#$B0,#$30,#$00; line #15
+        .byte #$00,#$00,#$5B,#$D0,#$10,#$00; line #16
+        .byte #$00,#$00,#$51,#$90,#$70,#$00; line #17
 ;TextPlayer1Wins
-	;Player 1
-        .byte #$00,#$00,#$00,#$00,#$80,#$00
-        .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
-        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
-        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
-        .byte #$00,#$00,#$52,#$00,#$80,#$00
-        .byte #$00,#$00,#$DE,#$30,#$80,#$00
+	;Player 2
+        .byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1
+        .byte #$00,#$2A,#$54,#$50,#$28,#$02; line #2
+        .byte #$00,#$2A,#$54,#$50,#$28,#$02; line #3
+        .byte #$00,#$3A,#$DC,#$D0,#$30,#$01; line #4
+        .byte #$00,#$22,#$94,#$40,#$29,#$00; line #5
+        .byte #$00,#$23,#$95,#$C0,#$A9,#$03; line #6
         ;Wins
-        .byte #$00,#$00,#$00,#$00,#$02,#$00
-        .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
-        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
-        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
-        .byte #$00,#$02,#$45,#$50,#$90,#$00
-        .byte #$00,#$02,#$5D,#$D0,#$12,#$00           
+        .byte #$00,#$00,#$00,#$00,#$00,#$00; line #12
+        .byte #$00,#$00,#$51,#$90,#$70,#$00; line #13
+        .byte #$00,#$00,#$51,#$90,#$40,#$00; line #14
+        .byte #$00,#$00,#$55,#$B0,#$30,#$00; line #15
+        .byte #$00,#$00,#$5B,#$D0,#$10,#$00; line #16
+        .byte #$00,#$00,#$51,#$90,#$70,#$00; line #17 
 
 TextPanel2
 ;TextTextGetReady
