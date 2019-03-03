@@ -568,7 +568,17 @@ SkipDrawGetReady:
         jsr DrawCountdown        
         jmp OSwait        
 SkipCountdown:
-
+	;Do nothing if Paused
+	cmp #PAUSE_STATE
+        ;beq OSwait
+        bne SkipPauseBlink
+        
+        ;reusing variable to cause text blink effect
+        inc VarP0
+        lda VarP0
+        sta COLUPF   
+        jmp OSwait
+SkipPauseBlink:        
      	;------------------------
         ldy PARP0
         jsr UpdateJoystickStatus
@@ -582,8 +592,15 @@ SkipCountdown:
         ldy SpeedCounter        
         dey
         sty SpeedCounter
-
 	bne SkipUpdates 
+
+        
+        ;check collisions
+        ldx PARP0
+        jsr CheckCollision
+
+        ldx PARP1
+        jsr CheckCollision    
 
 	;update the grid
         ldy Player0Y
@@ -593,21 +610,13 @@ SkipCountdown:
         ldy Player1Y
         ldx Player1X
         jsr UpdateGrid    
-        
+
         ;update movement
         ldy PARP0
         jsr MovePlayerAround
 
         ldy PARP1        
-        jsr MovePlayerAround
-                
-        ;check collisions
-        ldx PARP0
-        jsr CheckCollision
-
-        ldx PARP1
-        jsr CheckCollision    
-
+        jsr MovePlayerAround        
         
         ldy #SPEED		;reset move time
         sty SpeedCounter
@@ -1302,23 +1311,6 @@ TextPanel
         .byte #$00,#$00,#$55,#$B0,#$30,#$00; line #15
         .byte #$00,#$00,#$5B,#$D0,#$10,#$00; line #16
         .byte #$00,#$00,#$51,#$90,#$70,#$00; line #17 
-
-TextPanel2
-;TextTextGetReady
-	;GET
-        .byte #$00,#$00,#$00,#$00,#$80,#$00
-        .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
-        .byte #$00,#$00,#$42,#$20,#$80,#$00
-        .byte #$00,#$00,#$DA,#$30,#$80,#$00
-        .byte #$00,#$00,#$52,#$00,#$80,#$00
-        .byte #$00,#$00,#$DE,#$30,#$80,#$00
-        ;READY
-        .byte #$00,#$00,#$00,#$00,#$02,#$00
-        .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
-        .byte #$00,#$02,#$45,#$50,#$AA,#$00
-        .byte #$00,#$03,#$CC,#$50,#$BA,#$00
-        .byte #$00,#$02,#$45,#$50,#$90,#$00
-        .byte #$00,#$02,#$5D,#$D0,#$12,#$00   
         
 Countdown  ;PF2  PF0 
 	;Number 1
