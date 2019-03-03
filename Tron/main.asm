@@ -28,7 +28,7 @@
 	include "macro.h"
 	include "xmacro.h"
  
-SPEED		equ 4
+SPEED		equ 12
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
@@ -37,8 +37,10 @@ PARP1		equ 1
 INITIAL_STATE   equ 0
 P0WINS_STATE	equ 1
 P1WINS_STATE	equ 2
-;NOWINR_STATE	equ 3
-RESET_STATE	equ 4
+RESET_STATE	equ 3
+START_STATE	equ 4
+NOWINR_STATE	equ $99 ; tie
+
 ;WAIT_STATE	equ 5
 
 COUNTDOWN_STATE equ 128
@@ -442,8 +444,9 @@ nxtScanLine:
 ProcessSwitches:
         lda SWCHB       	; load in the state of the switches
         lsr             	; D0 is now in C
-        bcs skipSwitches    	; if D0 was on, the RESET switch was not held       
+        bcs SkipSwitches    	; if D0 was on, the RESET switch was not held       
    
+StartGame:   
 	jsr ResetGame		; prepare game state
         jsr ResetPositions	; reset the grid
        
@@ -472,65 +475,84 @@ ResetTurn:
         sta GameState
         
         jmp OSwait        
-skipSwitches:
+SkipSwitches:
 
+	;Set the grid color
+        lda #$40
+        sta COLUPF    
 
 ;===============================================================================
-; CHECKING SWITCHES
+; CHECKING GAME STATUS
 ;===============================================================================
-
-	;if in start mode 
+	;Checking if Game is over
+	lda Scores
+        cmp #NOWINR_STATE
+        bne SkipTie
+         
+	;load the Game Status	
         lda GameState
+        
+        cmp #NOWINR_STATE
+        beq SkipTie
+                
+        ;set the Game state to TIE
+        lda #NOWINR_STATE
+        sta GameState
+SkipTie:
+
+	;load the Game Status	
+        lda GameState           
+        
+        ;if in start mode 
         cmp #RESET_STATE
         beq ResetTurn
         
-        lda GameState
+        ;restart the game
+        cmp #START_STATE
+        beq StartGame
+        
+     
+	;Checking for Tie
+        cmp #NOWINR_STATE
+        bne SkipNoWinner
+        
+        ldy #$FF;-----------
+        jsr DrawText
+	jmp OSwait
+SkipNoWinner:
+
+	;Checking if Game is over
         cmp #P0WINS_STATE
         bne SkipP0Wins
 
-        ldy #TXT_PLAYER0
+        ldy #TXT_PLAYER0; Player 1 WINS
         jsr DrawText
-        jmp OSwait        
-SkipP0Wins:
+        jmp OSwait      
+SkipP0Wins:    
 
-        lda GameState
+	;Checking if Game is over
         cmp #P1WINS_STATE
         bne SkipP1Wins
 
-        ldy #TXT_PLAYER1
+        ldy #TXT_PLAYER1; Player 2 WINS
         jsr DrawText
         jmp OSwait        
 SkipP1Wins:
-
-        lda GameState      
+        
         cmp #INITIAL_STATE
         bne SkipDrawGetReady
         
         ldy #TXT_GETREAD
-        jsr DrawText
+        jsr DrawText        
+        jmp OSwait     
+SkipDrawGetReady:
         
-        jmp OSwait
-        
-SkipDrawGetReady:   
-
-	;lda GameState  
-        ;cmp #WAIT_STATE
-        ;bne SkipWait
-        ;jsr WaitRoutine
-        ;jmp OSwait
-        
-;SkipWait:        
-        lda GameState     
         cmp #COUNTDOWN_STATE
         bne SkipCountdown
         
         jsr DrawCountdown        
-        jmp OSwait
-        
+        jmp OSwait        
 SkipCountdown:
-
-        lda #$40
-        sta COLUPF     
 
      	;------------------------
         ldy PARP0
@@ -590,6 +612,7 @@ SkipUpdates:
 
         
 OSwait:
+
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM   ; Check the timer
         bne OSwait  ; Branch if its Not Equal to 0
@@ -602,6 +625,8 @@ OSwait:
 ;
 ;===============================================================================
 DrawText subroutine
+	cpy #$FF ; will not print anything
+        beq SkipText
 	ldx #12
 doLoop:
         ; fill left side
@@ -637,50 +662,19 @@ doLoop:
         inc VarP0
         lda VarP0
         sta COLUPF   
+SkipText:        
+        ;---- CONTINUE WHEN BUTTON IS PRESSED
+        bit INPT4
+        bmi SkipRestart
+	lda #START_STATE;#COUNTDOWN_STATE;#INITIAL_STATE
+        sta GameState
+        sta Scores
+SkipRestart:
+	;----        
         
 	rts      
         
-; How to avoid this duplicates?!        
-DrawText2 subroutine
-	ldx #12
-doLoop2:
-        ; fill left side
-        lda TextPanel2,y 
-        sta PF0_left,x+ROW_SHIFT1
-        iny
-
-        lda TextPanel2,y
-        sta PF1_left,x+ROW_SHIFT1
-        iny
-
-        lda TextPanel2,y
-        sta PF2_left,x+ROW_SHIFT1
-        iny
-
-        ; fill right side
-        lda TextPanel2,y
-        sta PF0_right,x+ROW_SHIFT1
-        iny
-
-        lda TextPanel2,y
-        sta PF1_right,x+ROW_SHIFT1
-        iny
-
-        lda TextPanel2,y
-        sta PF2_right,x+ROW_SHIFT1
-        iny
-
-        dex        
-        bne doLoop2
-        
-        ;reusing variable to cause text blink effect
-        inc VarP0
-        lda VarP0
-        sta COLUPF   
-        
-	rts         
-
-
+ 
 ;===============================================================================
 ; Draw Contdown digits
 ; --------------
@@ -1044,7 +1038,7 @@ CollP0:
         rts     
 SkipP0Inc: 	
         lda GameState
-        cmp #P1WINS_STATE;#RESET_STATE
+        cmp #P1WINS_STATE;
         beq DoNothing	
         
         ;flag to reset the turn
