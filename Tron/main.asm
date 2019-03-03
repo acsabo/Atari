@@ -28,7 +28,7 @@
 	include "macro.h"
 	include "xmacro.h"
  
-SPEED		equ 12
+SPEED		equ 12;12
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
@@ -51,8 +51,9 @@ INIT_Player0X	equ 4
 INIT_Player1X	equ 152
 INIT_PlayerY	equ 36
 
-COLOR_Player0	equ 132
-COLOR_Player1	equ 20
+COLOR_Player0	equ 25;132
+COLOR_Player1	equ 130
+COLOR_Playfield equ $44
 
 TXT_GETREAD     equ 0
 TXT_PLAYER0     equ 72
@@ -479,7 +480,7 @@ ResetTurn:
 SkipSwitches:
 
 	;Set the grid color
-        lda #$40
+        lda #COLOR_Playfield;#$40
         sta COLUPF    
 
 ;===============================================================================
@@ -511,13 +512,8 @@ SkipTie:
         bit INPT4
         bmi SkipPause
 	lda #RESET_STATE;#COUNTDOWN_STATE;#INITIAL_STATE
-        ;sta GameState
-         
-	;----      
-        
-        ;jmp OSwait
-        
-SkipPause:        
+SkipPause:
+
         ;if in start mode 
         cmp #RESET_STATE
         beq ResetTurn
@@ -525,7 +521,6 @@ SkipPause:
         ;restart the game
         cmp #START_STATE
         beq StartGame
-        
      
 	;Checking for Tie
         cmp #NOWINR_STATE
@@ -579,29 +574,28 @@ SkipCountdown:
         sta COLUPF   
         jmp OSwait
 SkipPauseBlink:        
-     	;------------------------
-        ldy PARP0
-        jsr UpdateJoystickStatus
-
-        ldy PARP1        
-        jsr UpdateJoystickStatus
-        ;------------------------
-        
-        
         ;MOVE SLOWER, by skeeping some frames 
         ldy SpeedCounter        
         dey
         sty SpeedCounter
 	bne SkipUpdates 
 
+     	;------------------------
+        ldy PARP0
+        jsr UpdateJoystickStatus
+
+        ldy PARP1        
+        jsr UpdateJoystickStatus
         
+        ;------------------------
         ;check collisions
         ldx PARP0
         jsr CheckCollision
 
         ldx PARP1
         jsr CheckCollision    
-
+        
+	;------------------------
 	;update the grid
         ldy Player0Y
         ldx Player0X
@@ -611,6 +605,7 @@ SkipPauseBlink:
         ldx Player1X
         jsr UpdateGrid    
 
+	;------------------------
         ;update movement
         ldy PARP0
         jsr MovePlayerAround
