@@ -22,22 +22,24 @@
     ; is for the 6502 CPU.  The Atari has a 6507, which is 6502 that's been
     ; put into a "reduced package".  This package limits the 6507 to an 8K
     ; address space and also removes support for external interrupts.
-        PROCESSOR 6502
+	PROCESSOR 6502
     
-		include "vcs.h"
-        include "macro.h"
-        include "xmacro.h"
+	include "vcs.h"tg
+	include "macro.h"
+	include "xmacro.h"
  
-SPEED		equ 8
+SPEED		equ 4
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
 PARP1		equ 1
+
 INITIAL_STATE   equ 0
 P0WINS_STATE	equ 1
 P1WINS_STATE	equ 2
-NOWINS_STATE	equ 3
+;NOWINR_STATE	equ 3
 RESET_STATE	equ 4
+;WAIT_STATE	equ 5
 
 COUNTDOWN_STATE equ 128
 COUNTDOWN_VALUE	equ 60
@@ -161,9 +163,9 @@ InitSystem
         
         lda INITIAL_STATE
         sta GameState
-		sta Controls
+	sta Controls
         
-		jsr ResetPositions
+	jsr ResetPositions
 
         ;player color
         lda #COLOR_Player0
@@ -203,8 +205,6 @@ Main:
 ;===============================================================================       
 
 ;MORE CODE CAN COME IN HERE!!!
-
- 
 
         ;line delimiter before grid
         lda #$68
@@ -457,13 +457,19 @@ ProcessSwitches:
         jmp OSwait  
         
 ResetTurn:        
+        lda #20			; set initial countdown to 3
+        sta VarP0; start from 3        
+        lda #COUNTDOWN_VALUE
+        sta VarP1; restart timer
+        
         jsr ResetPositions
         
         ;set init directions
         lda CRTP0RIGHT
         ora CRTP1LEFT
+        
+	sta Controls
         sta GameState
-		sta Controls
         
         jmp OSwait        
 skipSwitches:
@@ -507,6 +513,13 @@ SkipP1Wins:
         
 SkipDrawGetReady:   
 
+	;lda GameState  
+        ;cmp #WAIT_STATE
+        ;bne SkipWait
+        ;jsr WaitRoutine
+        ;jmp OSwait
+        
+;SkipWait:        
         lda GameState     
         cmp #COUNTDOWN_STATE
         bne SkipCountdown
@@ -518,8 +531,6 @@ SkipCountdown:
 
         lda #$40
         sta COLUPF     
-
-
 
      	;------------------------
         ldy PARP0
@@ -585,7 +596,6 @@ OSwait:
 
         jmp Main            ; JuMP to Main
 
-
 ;===============================================================================
 ; DrawText
 ; --------------
@@ -630,6 +640,46 @@ doLoop:
         
 	rts      
         
+; How to avoid this duplicates?!        
+DrawText2 subroutine
+	ldx #12
+doLoop2:
+        ; fill left side
+        lda TextPanel2,y 
+        sta PF0_left,x+ROW_SHIFT1
+        iny
+
+        lda TextPanel2,y
+        sta PF1_left,x+ROW_SHIFT1
+        iny
+
+        lda TextPanel2,y
+        sta PF2_left,x+ROW_SHIFT1
+        iny
+
+        ; fill right side
+        lda TextPanel2,y
+        sta PF0_right,x+ROW_SHIFT1
+        iny
+
+        lda TextPanel2,y
+        sta PF1_right,x+ROW_SHIFT1
+        iny
+
+        lda TextPanel2,y
+        sta PF2_right,x+ROW_SHIFT1
+        iny
+
+        dex        
+        bne doLoop2
+        
+        ;reusing variable to cause text blink effect
+        inc VarP0
+        lda VarP0
+        sta COLUPF   
+        
+	rts         
+
 
 ;===============================================================================
 ; Draw Contdown digits
@@ -689,8 +739,8 @@ SkipCountStatus:
         
         lda #RESET_STATE
         sta GameState
-	rts        
-
+	rts    
+        
 ;===============================================================================
 ; UpdateJoystick
 ; --------------
@@ -783,7 +833,7 @@ skpRight:
 ; MovePlayerAround
 ; --------------
 MovePlayerAround subroutine
-		lda Controls        
+	lda Controls        
         and CRTP0HALF,y
         sta TempP0
 	
@@ -948,6 +998,11 @@ CheckCollision subroutine
         ; Did the player collide with the wall?
         cpx PARP0
         bne TryCollP1
+        
+        ;players collide against each other?
+        bit CXPPMM
+	bmi CollP0
+                
         bit CXP0FB
         bpl SkipCollP0
         ;collision P0 HERE
@@ -956,6 +1011,10 @@ SkipCollP0:
         rts
                 
 TryCollP1:      
+	;players collide against each other?
+        bit CXPPMM
+	bmi CollP1
+        
         bit CXP1FB
         bpl SkipCollP1
         ;collision P0 HERE
@@ -963,7 +1022,8 @@ TryCollP1:
 SkipCollP1:         
         rts
 
-CollP0: 
+CollP0: 	        
+	
         ; updating Score
 	lda Scores
         and #$0F
@@ -976,52 +1036,62 @@ CollP0:
         sta Scores
         
         cpy #9
-        bcc SkipP0Inc
+        bne SkipP0Inc
         
         ;flag to reset the turn
         lda #P0WINS_STATE
         sta GameState
         rts     
-SkipP0Inc: 
-	
+SkipP0Inc: 	
+        lda GameState
+        cmp #P1WINS_STATE;#RESET_STATE
+        beq DoNothing	
+        
         ;flag to reset the turn
-        lda #RESET_STATE
+        lda #RESET_STATE#;WAIT_STATE;#RESET_STATE
         sta GameState              
 	rts
 CollP1:    
 	
 	; updating Score
         lda Scores
-        and #$F0
         lsr
         lsr
-        lsr
-        lsr
-        adc #1
+        lsr        
+        lsr        
+        
+        tay; increment
+        iny        
+        tya
+        
         asl
         asl
         asl
         asl
         
-        sta TempP0
+        sta TempP0        
         lda Scores
         and #$0F
-        ora TempP0
-        sta Scores
+        ora TempP0        
+        sta Scores           
         
-        ldy TempP0
-        cpy #144; 9 << 4
-        bcc SkipP1Inc
+        ;ldy TempP0
+        cpy #9
+        bne SkipP1Inc     
         
         ;flag to reset the turn
         lda #P1WINS_STATE
         sta GameState
-        rts        
+        rts      
 SkipP1Inc: 
-	
+        lda GameState
+        cmp #P0WINS_STATE;#RESET_STATE
+        beq DoNothing
+        	
         ;flag to reset the turn
-        lda #RESET_STATE
-        sta GameState               
+        lda #RESET_STATE;#WAIT_STATE;#RESET_STATE
+        sta GameState    
+DoNothing:        
         rts
 
 ;===============================================================================
@@ -1103,6 +1173,7 @@ pf2_r:
         ora BitReprF2,x		
         sta PF2_right,y	
         rts	
+        
         
 ;===============================================================================
 ; free space check before DigitGfx
@@ -1193,34 +1264,53 @@ TextPanel
         .byte #$00,#$02,#$45,#$50,#$90,#$00
         .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
 ;TextPlayer0Wins
-        .byte #$00,#$00,#$00,#$00,#$80,#$00
+	;Player 1
+        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
         .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
         .byte #$00,#$00,#$42,#$20,#$80,#$00
         .byte #$00,#$00,#$DA,#$30,#$80,#$00
         .byte #$00,#$00,#$52,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$30,#$80,#$00
-        
-        .byte #$00,#$00,#$00,#$00,#$02,#$00
+        ;Wins
+        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
         .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
         .byte #$00,#$02,#$45,#$50,#$AA,#$00
         .byte #$00,#$03,#$CC,#$50,#$BA,#$00
         .byte #$00,#$02,#$45,#$50,#$90,#$00
         .byte #$00,#$02,#$5D,#$D0,#$12,#$00        
 ;TextPlayer1Wins
+	;Player 1
+        .byte #$00,#$00,#$00,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
+        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
+        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
+        .byte #$00,#$00,#$52,#$00,#$80,#$00
+        .byte #$00,#$00,#$DE,#$30,#$80,#$00
+        ;Wins
+        .byte #$00,#$00,#$00,#$00,#$02,#$00
+        .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
+        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
+        .byte #$FF,#$FF,#$FF,#$FF,#$FF,#$FF
+        .byte #$00,#$02,#$45,#$50,#$90,#$00
+        .byte #$00,#$02,#$5D,#$D0,#$12,#$00           
+
+TextPanel2
+;TextTextGetReady
+	;GET
         .byte #$00,#$00,#$00,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$B0,#$E0,#$00
         .byte #$00,#$00,#$42,#$20,#$80,#$00
         .byte #$00,#$00,#$DA,#$30,#$80,#$00
         .byte #$00,#$00,#$52,#$00,#$80,#$00
         .byte #$00,#$00,#$DE,#$30,#$80,#$00
-        
+        ;READY
         .byte #$00,#$00,#$00,#$00,#$02,#$00
         .byte #$00,#$03,#$DD,#$D0,#$AA,#$00
         .byte #$00,#$02,#$45,#$50,#$AA,#$00
         .byte #$00,#$03,#$CC,#$50,#$BA,#$00
         .byte #$00,#$02,#$45,#$50,#$90,#$00
-        .byte #$00,#$02,#$5D,#$D0,#$12,#$00           
-
+        .byte #$00,#$02,#$5D,#$D0,#$12,#$00   
+        
 Countdown  ;PF2  PF0 
 	;Number 1
 	.byte #$80,#$00
