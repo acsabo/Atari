@@ -28,7 +28,7 @@
 	include "macro.h"
 	include "xmacro.h"
  
-SPEED		equ 12;12
+SPEED		equ 18;12
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
@@ -426,18 +426,6 @@ nxtScanLine:
         sta TIM64T  ; set timer to go off in 27 scanlines
    
 
-        ;-------------------
-        sta HMCLR		; reset the old horizontal position
-
-        ldx PARP0
-        jsr SetHorizPos
-
-        ldx PARP1
-        jsr SetHorizPos     
-
-        sta WSYNC
-        sta HMOVE		; gotta apply HMOVE        
-        ;-------------------
         
 ;===============================================================================
 ; CHECKING SWITCHES
@@ -574,18 +562,25 @@ SkipCountdown:
         sta COLUPF   
         jmp OSwait
 SkipPauseBlink:        
+
+        
+        ;-------------------
+        sta HMCLR		; reset the old horizontal position
+
+        ldx PARP0
+        jsr SetHorizPos
+
+        ldx PARP1
+        jsr SetHorizPos     
+
+        sta WSYNC
+        sta HMOVE		; gotta apply HMOVE        
+        ;-------------------   
         ;MOVE SLOWER, by skeeping some frames 
         ldy SpeedCounter        
         dey
         sty SpeedCounter
 	bne SkipUpdates 
-
-     	;------------------------
-        ldy PARP0
-        jsr UpdateJoystickStatus
-
-        ldy PARP1        
-        jsr UpdateJoystickStatus
         
         ;------------------------
         ;check collisions
@@ -593,7 +588,19 @@ SkipPauseBlink:
         jsr CheckCollision
 
         ldx PARP1
-        jsr CheckCollision    
+        jsr CheckCollision     
+        
+        lda GameState
+        cmp #PAUSE_STATE
+        beq SkipUpdates
+
+     	;------------------------
+        ldy PARP0
+        jsr UpdateJoystickStatus
+
+        ldy PARP1        
+        jsr UpdateJoystickStatus
+
         
 	;------------------------
 	;update the grid
@@ -604,6 +611,8 @@ SkipPauseBlink:
         ldy Player1Y
         ldx Player1X
         jsr UpdateGrid    
+        
+        
 
 	;------------------------
         ;update movement
@@ -611,16 +620,19 @@ SkipPauseBlink:
         jsr MovePlayerAround
 
         ldy PARP1        
-        jsr MovePlayerAround        
+        jsr MovePlayerAround 
+       
+        
+
         
         ldy #SPEED		;reset move time
         sty SpeedCounter
+     
                 
 SkipUpdates:        
 
-        ;Clear collision detection for this frame
-        sta CXCLR
-	;------------------------        
+  
+   
        
         ;Will use IA to control the other player
         ;jsr UpdateIAPlayer
@@ -632,6 +644,13 @@ SkipUpdates:
         
 OSwait:
 
+        
+
+
+        ;Clear collision detection for this frame
+        sta CXCLR
+	;------------------------     
+        
         sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
         lda INTIM   ; Check the timer
         bne OSwait  ; Branch if its Not Equal to 0
