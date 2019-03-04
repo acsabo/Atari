@@ -156,7 +156,8 @@ initGrid:
         sta Player1Y
         
         ldy #4
-        sty SpeedCounter        
+        sty SpeedCounter       
+         
 
         rts
         
@@ -233,7 +234,342 @@ Kernel
         TIMER_SETUP 192
         SLEEP 2;10 ; to make timing analysis work out
 
-        ;grid color
+        jsr DrawGrid 
+        
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+        sta WSYNC
+    
+;===============================================================================
+; Scoreboard
+;===============================================================================
+        ldx #5
+        lda GradientColorBK,x		        
+        sta COLUBK		
+
+        lda #%00000010; score mode 
+        sta CTRLPF
+
+        ldx #4 ; digit height
+nxtDigitLine:                
+        lda #0
+        sta PF1
+        jsr UpdateScoreLine
+        ldy #3
+nxtScanLine:
+        lda TempP0        
+        sta WSYNC
+        sta PF1
+        
+        lda GradientColorBK,x		        
+        sta COLUBK
+
+        SLEEP #26
+
+        lda TempP1
+        sta PF1
+
+        dey        
+        bne nxtScanLine
+
+        SLEEP #8
+
+        dex
+        bpl nxtDigitLine
+        sta WSYNC       
+
+        ;end of digits panel
+        lda #%00000000; clear score mode 
+        sta CTRLPF; -> CTRLPF
+        
+        lda #0
+        sta PF0
+        sta PF1
+        sta GRP0
+        sta GRP1        
+        sta WSYNC	; add extra line to keep simetry with the top	
+        sta WSYNC
+        
+
+        ldx #5
+        lda GradientColorBK,x		        
+        sta COLUBK
+        sta WSYNC
+        sta WSYNC
+                
+        lda #0
+        sta COLUBK
+
+        ; Wait for timer to finish
+        TIMER_WAIT
+
+;===============================================================================
+; Overscan
+; --------------
+; game logic runs here.  Since we don't have any yet, just delay so that the
+; entire video frame consists of 262 scanlines
+;===============================================================================
+        sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
+        lda #2      ; LoaD Accumulator with 2 so D1=1
+        sta VBLANK  ; STore Accumulator to VBLANK, D1=1 turns image output off
+
+        ; set the timer for 27 scanlines.  Each scanline lasts 76 cycles,
+        ; but the timer counts down once every 64 cycles, so use this
+        ; formula to figure out the value to set.  
+        ;       (scanlines * 76) / 64    
+        ; Also note that it might be slight off due to when on the scanline TIM64T
+        ; is updated.  So use Stella to check how many scanlines the code is
+        ; generating and adjust accordingly.
+        lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
+        sta TIM64T  ; set timer to go off in 27 scanlines
+   
+
+
+;===============================================================================
+; CHECKING SWITCHES
+;===============================================================================
+
+ProcessSwitches:
+        lda SWCHB       	; load in the state of the switches
+        lsr             	; D0 is now in C
+        bcs SkipSwitches    	; if D0 was on, the RESET switch was not held       
+   
+StartGame:   
+	jsr ResetGame		; prepare game state
+        jsr ResetPositions	; reset the grid
+       
+        lda #COUNTDOWN_STATE	; change state to countdown
+        sta GameState
+        
+        lda #20			; set initial countdown to 3
+        sta VarP0; start from 3        
+        lda #COUNTDOWN_VALUE
+        sta VarP1; restart timer
+        jmp OSwait  
+        
+ResetTurn:        
+        lda #20			; set initial countdown to 3
+        sta VarP0; start from 3        
+        lda #COUNTDOWN_VALUE
+        sta VarP1; restart timer
+        
+        jsr ResetPositions
+        
+        ;set init directions
+        lda CRTP0RIGHT
+        ora CRTP1LEFT
+        
+	sta Controls
+        sta GameState
+        
+        
+        
+   
+        jmp OSwait        
+SkipSwitches:
+
+	;Set the grid color
+        lda #COLOR_Playfield;#$40
+        sta COLUPF    
+
+
+        ;-------------------
+        sta HMCLR		; reset the old horizontal position
+
+        ldx PARP0
+        jsr SetHorizPos
+
+        ldx PARP1
+        jsr SetHorizPos     
+
+        sta WSYNC
+        sta HMOVE		; gotta apply HMOVE               
+        
+;===============================================================================
+; CHECKING GAME STATUS
+;===============================================================================
+	;Checking if Game is over
+	lda Scores
+        cmp #NOWINR_STATE
+        bne SkipTie
+         
+	;load the Game Status	
+        lda GameState
+        
+        cmp #NOWINR_STATE
+        beq SkipTie
+                
+        ;set the Game state to TIE
+        lda #NOWINR_STATE
+        sta GameState
+SkipTie:
+
+	;load the Game Status	
+        lda GameState 
+        
+        cmp #PAUSE_STATE
+        bne SkipPause
+        
+        ;---- CONTINUE WHEN BUTTON IS PRESSED
+        bit INPT4
+        bmi SkipPause
+	lda #RESET_STATE;#COUNTDOWN_STATE;#INITIAL_STATE
+SkipPause:
+
+        ;if in start mode 
+        cmp #RESET_STATE
+        beq ResetTurn
+        
+        ;restart the game
+        cmp #START_STATE
+        beq StartGame
+     
+	;Checking for Tie
+        cmp #NOWINR_STATE
+        bne SkipNoWinner
+        
+        ldy #$FF;-----------
+        jsr DrawText
+	jmp OSwait
+SkipNoWinner:
+
+	;Checking if Game is over
+        cmp #P0WINS_STATE
+        bne SkipP0Wins
+
+        ldy #TXT_PLAYER0; Player 1 WINS
+        jsr DrawText
+        jmp OSwait      
+SkipP0Wins:    
+
+	;Checking if Game is over
+        cmp #P1WINS_STATE
+        bne SkipP1Wins
+
+        ldy #TXT_PLAYER1; Player 2 WINS
+        jsr DrawText
+        jmp OSwait        
+SkipP1Wins:
+        
+        cmp #INITIAL_STATE
+        bne SkipDrawGetReady
+        
+        ldy #TXT_GETREAD
+        jsr DrawText        
+        jmp OSwait     
+SkipDrawGetReady:
+        
+        cmp #COUNTDOWN_STATE
+        bne SkipCountdown
+        
+        jsr DrawCountdown        
+        jmp OSwait        
+SkipCountdown:
+	;Do nothing if Paused
+	cmp #PAUSE_STATE
+        ;beq OSwait
+        bne SkipPauseBlink
+        
+        ;reusing variable to cause text blink effect
+        inc VarP0
+        lda VarP0
+        sta COLUPF   
+        jmp OSwait
+SkipPauseBlink:        
+
+        
+
+        ;------------------------        
+ 
+        ;-------------------   
+        ;MOVE SLOWER, by skeeping some frames 
+        ldy SpeedCounter        
+        dey
+        sty SpeedCounter
+	bne SkipUpdates 
+
+        ;check collisions
+        ldx PARP0
+        jsr CheckCollision
+
+        ldx PARP1
+        jsr CheckCollision     
+        
+        lda GameState
+        cmp #PAUSE_STATE
+        beq SkipUpdates
+
+     	;------------------------
+        ldy PARP0
+        jsr UpdateJoystickStatus
+
+        ldy PARP1        
+        jsr UpdateJoystickStatus
+
+        
+	;------------------------
+	;update the grid
+        ldy Player0Y
+        ldx Player0X
+        jsr UpdateGrid       
+
+        ldy Player1Y
+        ldx Player1X
+        jsr UpdateGrid    
+        
+        
+
+	;------------------------
+        ;update movement
+        ldy PARP0
+        jsr MovePlayerAround
+
+        ldy PARP1        
+        jsr MovePlayerAround 
+       
+        
+
+        
+        ldy #SPEED		;reset move time
+        sty SpeedCounter
+     
+                
+SkipUpdates:        
+
+
+   
+       
+        ;Will use IA to control the other player
+        ;jsr UpdateIAPlayer
+
+;===============================================================================
+; Restaring game loop
+;===============================================================================
+
+        
+OSwait:
+
+        
+
+
+        ;Clear collision detection for this frame
+        sta CXCLR
+	;------------------------     
+        
+        sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
+        lda INTIM   ; Check the timer
+        bne OSwait  ; Branch if its Not Equal to 0
+
+        jmp Main            ; JuMP to Main
+ 
+;===============================================================================
+; Draw the grid
+;=============================================================================== 
+DrawGrid subroutine
+       ;grid color
         lda GradientColorGrid,x
         sta COLUBK
 
@@ -333,329 +669,59 @@ RowsEnd
         
         lda #0
         sta COLUBK
-        
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-        sta WSYNC
-       
-         
-;===============================================================================
-; Scoreboard
-;===============================================================================
-        ldx #5
-        lda GradientColorBK,x		        
-        sta COLUBK		
+        rts
 
-        lda #%00000010; score mode 
-        sta CTRLPF
 
-        ldx #4 ; digit height
-nxtDigitLine:                
-        lda #0
-        sta PF1
-        jsr UpdateScoreLine
-        ldy #3
-nxtScanLine:
-        lda TempP0        
-        sta WSYNC
-        sta PF1
-        
-        lda GradientColorBK,x		        
-        sta COLUBK
-
-        SLEEP #26
-
-        lda TempP1
-        sta PF1
-
-        dey        
-        bne nxtScanLine
-
-        SLEEP #8
-
-        dex
-        bpl nxtDigitLine
-        sta WSYNC       
-
-        ;end of digits panel
-        lda #%00000000; clear score mode 
-        sta CTRLPF; -> CTRLPF
-        
-        lda #0
-        sta PF0
-        sta PF1
-        sta GRP0
-        sta GRP1        
-        sta WSYNC	; add extra line to keep simetry with the top	
-        sta WSYNC
-        
-
-        ldx #5
-        lda GradientColorBK,x		        
-        sta COLUBK
-        sta WSYNC
-        sta WSYNC
-                
-        lda #0
-        sta COLUBK
-
-        ; Wait for timer to finish
-        TIMER_WAIT
 
 ;===============================================================================
-; Overscan
+; UpdateScoreLine
 ; --------------
-; game logic runs here.  Since we don't have any yet, just delay so that the
-; entire video frame consists of 262 scanlines
+;
 ;===============================================================================
-        sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
-        lda #2      ; LoaD Accumulator with 2 so D1=1
-        sta VBLANK  ; STore Accumulator to VBLANK, D1=1 turns image output off
+; Fetches bitmap data for two digits of a
+; BCD-encoded number, storing it in TempP1 and TempP2
+; FontBuf+x to FontBuf+4+x.
+UpdateScoreLine subroutine
+        ;---------- PLAYER 1 SCORE
+        lda Scores        
+        and #$0F	; mask out the least significant digit
 
-        ; set the timer for 27 scanlines.  Each scanline lasts 76 cycles,
-        ; but the timer counts down once every 64 cycles, so use this
-        ; formula to figure out the value to set.  
-        ;       (scanlines * 76) / 64    
-        ; Also note that it might be slight off due to when on the scanline TIM64T
-        ; is updated.  So use Stella to check how many scanlines the code is
-        ; generating and adjust accordingly.
-        lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)
-        sta TIM64T  ; set timer to go off in 27 scanlines
-   
+        sta TempP0
+        asl
+        asl        
+        adc TempP0	; multiply by 5
 
+        stx TempP0	; add relative index being rendered
+        adc TempP0
+
+        tay
+        lda DigitsBitmap,y       
+        and #$0F
+
+        sta TempP0
+	
+        ;---------- PLAYER 2 SCORE
+        lda Scores
+        and #$F0
+        lsr
+        lsr        
+        lsr
+        lsr       
         
-;===============================================================================
-; CHECKING SWITCHES
-;===============================================================================
+        sta TempP1        
+        asl
+        asl       
+        adc TempP1	; multiply by 5        
 
-ProcessSwitches:
-        lda SWCHB       	; load in the state of the switches
-        lsr             	; D0 is now in C
-        bcs SkipSwitches    	; if D0 was on, the RESET switch was not held       
-   
-StartGame:   
-	jsr ResetGame		; prepare game state
-        jsr ResetPositions	; reset the grid
-       
-        lda #COUNTDOWN_STATE	; change state to countdown
-        sta GameState
-        
-        lda #20			; set initial countdown to 3
-        sta VarP0; start from 3        
-        lda #COUNTDOWN_VALUE
-        sta VarP1; restart timer
-        jmp OSwait  
-        
-ResetTurn:        
-        lda #20			; set initial countdown to 3
-        sta VarP0; start from 3        
-        lda #COUNTDOWN_VALUE
-        sta VarP1; restart timer
-        
-        jsr ResetPositions
-        
-        ;set init directions
-        lda CRTP0RIGHT
-        ora CRTP1LEFT
-        
-	sta Controls
-        sta GameState
-        
-        jmp OSwait        
-SkipSwitches:
+        stx TempP1
+        adc TempP1
 
-	;Set the grid color
-        lda #COLOR_Playfield;#$40
-        sta COLUPF    
+        tay
+        lda DigitsBitmap,y
+        and #$0F
+        sta TempP1
 
-;===============================================================================
-; CHECKING GAME STATUS
-;===============================================================================
-	;Checking if Game is over
-	lda Scores
-        cmp #NOWINR_STATE
-        bne SkipTie
-         
-	;load the Game Status	
-        lda GameState
-        
-        cmp #NOWINR_STATE
-        beq SkipTie
-                
-        ;set the Game state to TIE
-        lda #NOWINR_STATE
-        sta GameState
-SkipTie:
-
-	;load the Game Status	
-        lda GameState 
-        
-        cmp #PAUSE_STATE
-        bne SkipPause
-        
-        ;---- CONTINUE WHEN BUTTON IS PRESSED
-        bit INPT4
-        bmi SkipPause
-	lda #RESET_STATE;#COUNTDOWN_STATE;#INITIAL_STATE
-SkipPause:
-
-        ;if in start mode 
-        cmp #RESET_STATE
-        beq ResetTurn
-        
-        ;restart the game
-        cmp #START_STATE
-        beq StartGame
-     
-	;Checking for Tie
-        cmp #NOWINR_STATE
-        bne SkipNoWinner
-        
-        ldy #$FF;-----------
-        jsr DrawText
-	jmp OSwait
-SkipNoWinner:
-
-	;Checking if Game is over
-        cmp #P0WINS_STATE
-        bne SkipP0Wins
-
-        ldy #TXT_PLAYER0; Player 1 WINS
-        jsr DrawText
-        jmp OSwait      
-SkipP0Wins:    
-
-	;Checking if Game is over
-        cmp #P1WINS_STATE
-        bne SkipP1Wins
-
-        ldy #TXT_PLAYER1; Player 2 WINS
-        jsr DrawText
-        jmp OSwait        
-SkipP1Wins:
-        
-        cmp #INITIAL_STATE
-        bne SkipDrawGetReady
-        
-        ldy #TXT_GETREAD
-        jsr DrawText        
-        jmp OSwait     
-SkipDrawGetReady:
-        
-        cmp #COUNTDOWN_STATE
-        bne SkipCountdown
-        
-        jsr DrawCountdown        
-        jmp OSwait        
-SkipCountdown:
-	;Do nothing if Paused
-	cmp #PAUSE_STATE
-        ;beq OSwait
-        bne SkipPauseBlink
-        
-        ;reusing variable to cause text blink effect
-        inc VarP0
-        lda VarP0
-        sta COLUPF   
-        jmp OSwait
-SkipPauseBlink:        
-
-        
-        ;-------------------
-        sta HMCLR		; reset the old horizontal position
-
-        ldx PARP0
-        jsr SetHorizPos
-
-        ldx PARP1
-        jsr SetHorizPos     
-
-        sta WSYNC
-        sta HMOVE		; gotta apply HMOVE        
-        ;-------------------   
-        ;MOVE SLOWER, by skeeping some frames 
-        ldy SpeedCounter        
-        dey
-        sty SpeedCounter
-	bne SkipUpdates 
-        
-        ;------------------------
-        ;check collisions
-        ldx PARP0
-        jsr CheckCollision
-
-        ldx PARP1
-        jsr CheckCollision     
-        
-        lda GameState
-        cmp #PAUSE_STATE
-        beq SkipUpdates
-
-     	;------------------------
-        ldy PARP0
-        jsr UpdateJoystickStatus
-
-        ldy PARP1        
-        jsr UpdateJoystickStatus
-
-        
-	;------------------------
-	;update the grid
-        ldy Player0Y
-        ldx Player0X
-        jsr UpdateGrid       
-
-        ldy Player1Y
-        ldx Player1X
-        jsr UpdateGrid    
-        
-        
-
-	;------------------------
-        ;update movement
-        ldy PARP0
-        jsr MovePlayerAround
-
-        ldy PARP1        
-        jsr MovePlayerAround 
-       
-        
-
-        
-        ldy #SPEED		;reset move time
-        sty SpeedCounter
-     
-                
-SkipUpdates:        
-
-  
-   
-       
-        ;Will use IA to control the other player
-        ;jsr UpdateIAPlayer
-
-;===============================================================================
-; Restaring game loop
-;===============================================================================
-
-        
-OSwait:
-
-        
-
-
-        ;Clear collision detection for this frame
-        sta CXCLR
-	;------------------------     
-        
-        sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)
-        lda INTIM   ; Check the timer
-        bne OSwait  ; Branch if its Not Equal to 0
-
-        jmp Main            ; JuMP to Main
+        rts        
 
 ;===============================================================================
 ; DrawText
@@ -773,160 +839,6 @@ SkipCountStatus:
         sta GameState
 	rts    
         
-;===============================================================================
-; UpdateJoystick
-; --------------
-; Read joystick movement and apply to object 0
-;===============================================================================        
-UpdateJoystickStatus subroutine     
-        lda Controls
-        and CRTP0HALF,y
-        sta TempP0; store current direction
-        
-	; Move vertically
-        ; (up and down are actually reversed since ypos starts at bottom)
-        lda CRTP0DOWN,y;Down?
-        bit SWCHA
-        bne skpDown
- 
-       	;check the oposite direction
-        lda CRTP0UP,y;UP?
-        bit TempP0                
-        bne skpDown	;avoid going in the oposite direction
-        ;----
-        
-        lda CRTP0DOWN,y
-        sta TempP0
-        lda Controls
-        and CRTP0MERGE,y        
-        ora TempP0
-        sta Controls
-        rts
-skpDown:
-        lda CRTP0UP,y;UP?
-        bit SWCHA 
-        bne skpUp
-
-       	;check the oposite direction
-        lda CRTP0DOWN,y;UP?
-        bit TempP0                
-        bne skpUp	;avoid going in the oposite direction
-        ;----
-
-        lda CRTP0UP,y
-        sta TempP0
-        lda Controls
-        and CRTP0MERGE,y        
-        ora TempP0
-        sta Controls
-        rts
-skpUp:
-        lda CRTP0LEFT,y;Left?
-        bit SWCHA
-        bne skpLeft        
-        
-       	;check the oposite direction
-        lda CRTP0RIGHT,y;UP?
-        bit TempP0                
-        bne skpLeft	;avoid going in the oposite direction
-        ;----
-        
-        lda CRTP0LEFT,y
-        sta TempP0
-        lda Controls
-        and CRTP0MERGE,y        
-        ora TempP0
-        sta Controls
-        rts
-skpLeft:
-        lda CRTP0RIGHT,y;Right?
-        bit SWCHA 
-        bne skpRight        
-        
-       	;check the oposite direction
-        lda CRTP0LEFT,y;UP?
-        bit TempP0                
-        bne skpRight	;avoid going in the oposite direction
-        ;----
-        
-        lda CRTP0RIGHT,y
-        sta TempP0
-        lda Controls
-        and CRTP0MERGE,y        
-        ora TempP0
-        sta Controls
-        rts
-
-skpRight:	
-
-        rts
-        
-;===============================================================================
-; MovePlayerAround
-; --------------
-MovePlayerAround subroutine
-	lda Controls        
-        and CRTP0HALF,y
-        sta TempP0
-	
-        ; Move vertically
-        ; (up and down are actually reversed since ypos starts at bottom)
-        ldx Player0Y,y
-        
-        lda CRTP0DOWN,y;Down?
-        bit TempP0
-        
-        beq SkipMoveUp
-        cpx #1
-        bcc SkipMoveUp
-        dex
-        dex
-        dex
-        dex
-        stx Player0Y,y
-        rts
-SkipMoveUp
-        lda CRTP0UP,y;UP?
-        bit TempP0 
-        
-        beq SkipMoveDown
-        cpx #72
-        bcs SkipMoveDown
-        inx
-        inx
-        inx
-        inx
-        stx Player0Y,y
-        rts     
-SkipMoveDown
-        ; Move horizontally
-        ldx Player0X,y
-        lda CRTP0LEFT,y;Left?
-        bit TempP0
-        beq SkipMoveLeft
-        cpx #1
-        bcc SkipMoveLeft
-        dex
-        dex
-        dex
-        dex
-        stx Player0X,y
-	lda Player0Y,y
-        rts       
-SkipMoveLeft
-        lda CRTP0RIGHT,y;Right?
-        bit TempP0 
-        beq SkipMoveRight
-        cpx #156
-        bcs SkipMoveRight
-        inx
-        inx
-        inx
-        inx
-        stx Player0X,y      
-	lda Player0Y,y
-SkipMoveRight	
-        rts        
         
 ;===============================================================================
 ; SetHorizPos
@@ -948,77 +860,8 @@ DivideLoop:
         asl
         sta RESP0,x	; fix coarse position
         sta HMP0,x	; set fine offset
-        rts		; return to caller        
+        rts		; return to caller              
 
-;===============================================================================
-; I.A Player 2
-; --------------
-;
-;===============================================================================
-UpdateIAPlayer	subroutine
-	lda Player0Y
-        and $0F
-        lsr
-        lsr
-        lsr
-  
-        tay        
-	lda RandomDirP1,y
-        ora Controls
-        sta Controls
-
-        rts
-        
-
-;===============================================================================
-; UpdateScoreLine
-; --------------
-;
-;===============================================================================
-; Fetches bitmap data for two digits of a
-; BCD-encoded number, storing it in TempP1 and TempP2
-; FontBuf+x to FontBuf+4+x.
-UpdateScoreLine subroutine
-        ;---------- PLAYER 1 SCORE
-        lda Scores        
-        and #$0F	; mask out the least significant digit
-
-        sta TempP0
-        asl
-        asl        
-        adc TempP0	; multiply by 5
-
-        stx TempP0	; add relative index being rendered
-        adc TempP0
-
-        tay
-        lda DigitsBitmap,y       
-        and #$0F
-
-        sta TempP0
-	
-        ;---------- PLAYER 2 SCORE
-        lda Scores
-        and #$F0
-        lsr
-        lsr        
-        lsr
-        lsr       
-        
-        sta TempP1        
-        asl
-        asl       
-        adc TempP1	; multiply by 5        
-
-        stx TempP1
-        adc TempP1
-
-        tay
-        lda DigitsBitmap,y
-        and #$0F
-        sta TempP1
-
-        rts
 
 ;===============================================================================
 ; CheckCollision
@@ -1125,7 +968,94 @@ SkipP1Inc:
         sta GameState    
 DoNothing:        
         rts
+                
+;===============================================================================
+; UpdateJoystick
+; --------------
+; Read joystick movement and apply to object 0
+;===============================================================================        
+UpdateJoystickStatus subroutine     
+        lda Controls
+        and CRTP0HALF,y
+        sta TempP0; store current direction
+        
+	; Move vertically
+        ; (up and down are actually reversed since ypos starts at bottom)
+        lda CRTP0DOWN,y;Down?
+        bit SWCHA
+        bne skpDown
+ 
+       	;check the oposite direction
+        lda CRTP0UP,y;UP?
+        bit TempP0                
+        bne skpDown	;avoid going in the oposite direction
+        ;----
+        
+        lda CRTP0DOWN,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
+        ora TempP0
+        sta Controls
+        rts
+skpDown:
+        lda CRTP0UP,y;UP?
+        bit SWCHA 
+        bne skpUp
 
+       	;check the oposite direction
+        lda CRTP0DOWN,y;UP?
+        bit TempP0                
+        bne skpUp	;avoid going in the oposite direction
+        ;----
+
+        lda CRTP0UP,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
+        ora TempP0
+        sta Controls
+        rts
+skpUp:
+        lda CRTP0LEFT,y;Left?
+        bit SWCHA
+        bne skpLeft        
+        
+       	;check the oposite direction
+        lda CRTP0RIGHT,y;UP?
+        bit TempP0                
+        bne skpLeft	;avoid going in the oposite direction
+        ;----
+        
+        lda CRTP0LEFT,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
+        ora TempP0
+        sta Controls
+        rts
+skpLeft:
+        lda CRTP0RIGHT,y;Right?
+        bit SWCHA 
+        bne skpRight        
+        
+       	;check the oposite direction
+        lda CRTP0LEFT,y;UP?
+        bit TempP0                
+        bne skpRight	;avoid going in the oposite direction
+        ;----
+        
+        lda CRTP0RIGHT,y
+        sta TempP0
+        lda Controls
+        and CRTP0MERGE,y        
+        ora TempP0
+        sta Controls
+        rts
+
+skpRight:
+        rts
+        
 ;===============================================================================
 ; UpdateGrid
 ; --------------
@@ -1205,7 +1135,95 @@ pf2_r:
         ora BitReprF2,x		
         sta PF2_right,y	
         rts	
+
+
+;===============================================================================
+; MovePlayerAround
+; --------------
+MovePlayerAround subroutine
+	lda Controls        
+        and CRTP0HALF,y
+        sta TempP0
+	
+        ; Move vertically
+        ; (up and down are actually reversed since ypos starts at bottom)
+        ldx Player0Y,y
         
+        lda CRTP0DOWN,y;Down?
+        bit TempP0
+        
+        beq SkipMoveUp
+        cpx #1
+        bcc SkipMoveUp
+        dex
+        dex
+        dex
+        dex
+        stx Player0Y,y
+        rts
+SkipMoveUp
+        lda CRTP0UP,y;UP?
+        bit TempP0 
+        
+        beq SkipMoveDown
+        cpx #72
+        bcs SkipMoveDown
+        inx
+        inx
+        inx
+        inx
+        stx Player0Y,y
+        rts     
+SkipMoveDown
+        ; Move horizontally
+        ldx Player0X,y
+        lda CRTP0LEFT,y;Left?
+        bit TempP0
+        beq SkipMoveLeft
+        cpx #1
+        bcc SkipMoveLeft
+        dex
+        dex
+        dex
+        dex
+        stx Player0X,y
+	lda Player0Y,y
+        rts       
+SkipMoveLeft
+        lda CRTP0RIGHT,y;Right?
+        bit TempP0 
+        beq SkipMoveRight
+        cpx #156
+        bcs SkipMoveRight
+        inx
+        inx
+        inx
+        inx
+        stx Player0X,y      
+	lda Player0Y,y
+SkipMoveRight	
+        rts   
+
+;===============================================================================
+; I.A Player 2
+; --------------
+;
+;===============================================================================
+;UpdateIAPlayer	subroutine
+;	lda VarP0
+;        inc VarP0
+;        ;and $0F
+;        ;lsr
+;        ;lsr
+;        ;lsr
+;  
+;        tay        
+;	lda RandomDirP1,y
+;        and $0F
+;        ora Controls
+;        sta Controls
+;        rts
+
         
 ;===============================================================================
 ; free space check before DigitGfx
