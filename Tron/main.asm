@@ -18,17 +18,17 @@
 ; Initialize dasm
 ;===============================================================================
 
-    ; Dasm supports a number of processors, this line tells dasm the code
-    ; is for the 6502 CPU.  The Atari has a 6507, which is 6502 that's been
-    ; put into a "reduced package".  This package limits the 6507 to an 8K
-    ; address space and also removes support for external interrupts.
+        ; Dasm supports a number of processors, this line tells dasm the code
+        ; is for the 6502 CPU.  The Atari has a 6507, which is 6502 that's been
+        ; put into a "reduced package".  This package limits the 6507 to an 8K
+        ; address space and also removes support for external interrupts.
 	PROCESSOR 6502
-    
-	include "vcs.h"tg
-	include "macro.h"
-	include "xmacro.h"
+
+        include "vcs.h"tg
+        include "macro.h"
+        include "xmacro.h"
  
-SPEED		equ 18;12
+SPEED		equ 2;12
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
@@ -114,11 +114,11 @@ VarP1		.byte
 ; Define Start of Cartridge
 ;===============================================================================
 
-    ; define a segment for code
-    SEG CODE    
+	; define a segment for code
+    	SEG CODE    
     
-    ; 2K ROM starts at $F800, 4K ROM starts at $F000
-    ORG $F800
+    	; 2K ROM starts at $F800, 4K ROM starts at $F000
+    	ORG $F800
      
 ResetGame subroutine	
         ;init Score
@@ -156,9 +156,7 @@ initGrid:
         sta Player1Y
         
         ldy #4
-        sty SpeedCounter       
-         
-
+        sty SpeedCounter    
         rts
         
 InitSystem
@@ -364,9 +362,6 @@ ResetTurn:
         
 	sta Controls
         sta GameState
-        
-        
-        
    
         jmp OSwait        
 SkipSwitches:
@@ -375,8 +370,6 @@ SkipSwitches:
         lda #COLOR_Playfield;#$40
         sta COLUPF    
 
-
-        ;-------------------
         sta HMCLR		; reset the old horizontal position
 
         ldx PARP0
@@ -386,7 +379,7 @@ SkipSwitches:
         jsr SetHorizPos     
 
         sta WSYNC
-        sta HMOVE		; gotta apply HMOVE               
+        sta HMOVE
         
 ;===============================================================================
 ; CHECKING GAME STATUS
@@ -415,7 +408,12 @@ SkipTie:
         
         ;---- CONTINUE WHEN BUTTON IS PRESSED
         bit INPT4
-        bmi SkipPause
+        bmi SkipPause0
+        jmp ButtonPressed
+SkipPause0:        
+        bit INPT5
+        bmi SkipPause      
+ButtonPressed:     
 	lda #RESET_STATE;#COUNTDOWN_STATE;#INITIAL_STATE
 SkipPause:
 
@@ -431,7 +429,7 @@ SkipPause:
         cmp #NOWINR_STATE
         bne SkipNoWinner
         
-        ldy #$FF;-----------
+        ldy #$FF 
         jsr DrawText
 	jmp OSwait
 SkipNoWinner:
@@ -480,10 +478,6 @@ SkipCountdown:
         jmp OSwait
 SkipPauseBlink:        
 
-        
-
-        ;------------------------        
- 
         ;-------------------   
         ;MOVE SLOWER, by skeeping some frames 
         ldy SpeedCounter        
@@ -502,15 +496,13 @@ SkipPauseBlink:
         cmp #PAUSE_STATE
         beq SkipUpdates
 
-     	;------------------------
+     	;update joystick directions
         ldy PARP0
         jsr UpdateJoystickStatus
 
         ldy PARP1        
         jsr UpdateJoystickStatus
 
-        
-	;------------------------
 	;update the grid
         ldy Player0Y
         ldx Player0X
@@ -519,19 +511,13 @@ SkipPauseBlink:
         ldy Player1Y
         ldx Player1X
         jsr UpdateGrid    
-        
-        
-
-	;------------------------
+   
         ;update movement
         ldy PARP0
         jsr MovePlayerAround
 
         ldy PARP1        
         jsr MovePlayerAround 
-       
-        
-
         
         ldy #SPEED		;reset move time
         sty SpeedCounter
@@ -539,20 +525,13 @@ SkipPauseBlink:
                 
 SkipUpdates:        
 
-
-   
-       
         ;Will use IA to control the other player
         ;jsr UpdateIAPlayer
 
 ;===============================================================================
 ; Restaring game loop
 ;===============================================================================
-
-        
 OSwait:
-
-        
 
 
         ;Clear collision detection for this frame
@@ -573,9 +552,6 @@ DrawGrid subroutine
         lda GradientColorGrid,x
         sta COLUBK
 
-        ;lda #$40
-        ;sta COLUPF        
-
         lda Player0Y
         lsr        
         lsr
@@ -588,23 +564,20 @@ DrawGrid subroutine
         sta TempP1        
 
         ldy #MaxRows	; start        
-        ;===========
         SLEEP #18	; TRICK TO WAIT FOR THE RIGHT TIME
 PatternChanged:
-        ;-------------- AQUI OCORRE O SALTO PORQUE N�O HOUVE TEMPO SUFICIENTE PARA DESENHAR I FIM DA LINHA
         lda #$F0
         cpy TempP1
         beq doDrawP2
         lda #0			; no, load the padding offset (0)        
 doDrawP2:       
-        tax	; backup para dar tempo !!! aproveitando o x j� que est� zerado
+        tax	; save x for the near future bellow
 
         lda #$F0
         cpy TempP0
         beq doDrawP1
         lda #0			; no, load the padding offset (0)
 doDrawP1:
-        ;--------------
         ;enable/disable player
         stx GRP1
         ldx #SpriteHeight
@@ -670,8 +643,6 @@ RowsEnd
         lda #0
         sta COLUBK
         rts
-
-
 
 ;===============================================================================
 ; UpdateScoreLine
@@ -767,14 +738,19 @@ doLoop:
         lda VarP0
         sta COLUPF   
 SkipText:        
-        ;---- CONTINUE WHEN BUTTON IS PRESSED
+        ;Continue when a button is pressed
+        bit INPT5
+        bmi SkiP1Pressed
+        jmp ButtonHit
+SkiP1Pressed:        
         bit INPT4
-        bmi SkipRestart
-	lda #START_STATE;#COUNTDOWN_STATE;#INITIAL_STATE
+        bmi SkipRestart        
+ButtonHit:        
+	lda #START_STATE
         sta GameState
         sta Scores
 SkipRestart:
-	;----        
+ 
         
 	rts      
         
@@ -923,7 +899,7 @@ SkipP0Inc:
         beq DoNothing	
         
         ;flag to reset the turn
-        lda #PAUSE_STATE;#RESET_STATE#;WAIT_STATE;#RESET_STATE
+        lda #PAUSE_STATE
         sta GameState              
 	rts
 CollP1:    
@@ -1007,7 +983,6 @@ skpDown:
         lda CRTP0DOWN,y;UP?
         bit TempP0                
         bne skpUp	;avoid going in the oposite direction
-        ;----
 
         lda CRTP0UP,y
         sta TempP0
@@ -1025,7 +1000,6 @@ skpUp:
         lda CRTP0RIGHT,y;UP?
         bit TempP0                
         bne skpLeft	;avoid going in the oposite direction
-        ;----
         
         lda CRTP0LEFT,y
         sta TempP0
@@ -1043,7 +1017,6 @@ skpLeft:
         lda CRTP0LEFT,y;UP?
         bit TempP0                
         bne skpRight	;avoid going in the oposite direction
-        ;----
         
         lda CRTP0RIGHT,y
         sta TempP0
@@ -1063,16 +1036,12 @@ skpRight:
 ;===============================================================================
 UpdateGrid subroutine
         tya
-        ;adc 1
         lsr
         lsr
         tay
-
         txa
-        ;adc 1	; 
         lsr
         lsr ; div 4
-        ;
 
         cmp #20
         bpl SecondHalf
