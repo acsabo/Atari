@@ -57,9 +57,11 @@ TXT_GETREAD     equ 0
 TXT_PLAYER0     equ 72
 TXT_PLAYER1     equ 144
 
-DGT_1		equ 0
 ROW_SHIFT1	equ 3
 ROW_SHIFT2	equ 6
+
+DOTS_MODE	equ 2
+TRACK_MODE	equ 1
 
 ;===============================================================================
 ; Define RAM Usage
@@ -108,6 +110,8 @@ GameState	.byte
 VarP0		.byte
 VarP1		.byte
 	       
+;There's no bytes left :) the last one if for the stack pointer
+
 ;===============================================================================
 ; Define Start of Cartridge
 ;===============================================================================
@@ -118,10 +122,13 @@ VarP1		.byte
     	; 2K ROM starts at $F800, 4K ROM starts at $F000
     	ORG $F800
      
+
+        
 ResetGame subroutine	
         ;init Score
         lda #$00
         sta Scores
+        
         rts
         
 ResetPositions subroutine
@@ -329,9 +336,24 @@ nxtScanLine:
 ;===============================================================================
 
 ProcessSwitches:
+
+        
+        ;may change the game mode
+        lda #$02
+        and SWCHB
+        bne SkipSelect
+        
+        ;change the game mode
+        lda #$FF
+        ora GameState
+        sta GameState
+        
+        jmp SkipSwitches
+SkipSelect:
+	;if not pressing RESET
         lda SWCHB       	; load in the state of the switches
         lsr             	; D0 is now in C
-        bcs SkipSwitches    	; if D0 was on, the RESET switch was not held       
+        bcs SkipSwitches    	; if D0 was on, the RESET switch was not held 
    
 StartGame:   
 	jsr ResetGame		; prepare game state
@@ -483,45 +505,82 @@ SkipPauseBlink:
         sty SpeedCounter
 	bne SkipUpdates 
 
+        
         ;check collisions
         ldx PARP0
         jsr CheckCollision
 
         ldx PARP1
-        jsr CheckCollision     
+        jsr CheckCollision            
         
         lda GameState
         cmp #PAUSE_STATE
         beq SkipUpdates
 
-     	;update joystick directions
+        ;if no changed direction, skip UpdateGrid in case it is mode = 2
+        lda Controls
+        ;and $0F
+        sta VarP0
+
+	;update joystick directions
         ldy PARP0
         jsr UpdateJoystickStatus
-
-        ldy PARP1        
-        jsr UpdateJoystickStatus
-
+        
+        ;test the game mode
+	lda GameState
+        bit $256;====>>> TODO
+        beq SkipDot0
+        
+        ;compare after change
+        lda Controls
+        cmp VarP0
+        beq SkipUpdateGridP0
+        
+SkipDot0:        
 	;update the grid
         ldy Player0Y
         ldx Player0X
-        jsr UpdateGrid       
+        jsr UpdateGrid     
+        
+SkipUpdateGridP0:
 
+        ;if no changed direction, skip UpdateGrid in case it is mode = 2
+        lda Controls
+        sta VarP0
+        
+        ldy PARP1        
+        jsr UpdateJoystickStatus        
+
+        ;test the game mode
+	lda GameState
+        bit $256;====>>> TODO
+        beq SkipDot1
+        
+        ;compare after change
+        lda Controls
+        cmp VarP0
+        beq SkipUpdateGridP1
+        
+SkipDot1:        
+	;if changed direction
         ldy Player1Y
         ldx Player1X
         jsr UpdateGrid    
+
+SkipUpdateGridP1:
    
         ;update movement
         ldy PARP0
         jsr MovePlayerAround
 
         ldy PARP1        
-        jsr MovePlayerAround 
-        
+        jsr MovePlayerAround    
+   
         ldy #SPEED		;reset move time
         sty SpeedCounter
      
                 
-SkipUpdates:        
+SkipUpdates:         
 
         ;Will use IA to control the other player
         ;jsr UpdateIAPlayer
@@ -1191,23 +1250,8 @@ SkipMoveRight
 ;        sta Controls
 ;        rts
 
-        
-;===============================================================================
-; free space check before DigitGfx
-;===============================================================================
-        
- if (* & $FF)
-    echo "------", [(>.+1)*256 - .]d, "bytes free before DigitGfx"
-    align 256
-  endif    
-    
-  
-;===============================================================================
-; Digit Graphics
-;===============================================================================
-        align 256
-       
-       
+	
+
 CRTP0UP		.byte #%00010000       
 CRTP1UP		.byte #%00000001       
 
@@ -1355,10 +1399,10 @@ RandomDirP1
 ; free space check before End of Cartridge
 ;===============================================================================
         
- if (* & $FF)
-    echo "------", [$FFFA - *]d, "bytes free before End of Cartridge"
+ ;if (* & $FF)
+    ;echo "------", [$FFFA - *]d, "bytes free before End of Cartridge"
     align 256
-  endif        
+  ;endif        
         
 ;===============================================================================
 ; Define End of Cartridge
