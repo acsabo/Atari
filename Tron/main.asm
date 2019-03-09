@@ -29,25 +29,25 @@
 	include "xmacro.h"
 
 SPEED			equ 12
-SpriteHeight	equ 8 
+SpriteHeight		equ 8 
 MaxRows			equ 18
 PARP0			equ 0
 PARP1			equ 1
-INITIAL_STATE   equ 0
-P0WINS_STATE	equ 1
-P1WINS_STATE	equ 2
+INITIAL_STATE   	equ 0
+P0WINS_STATE		equ 1
+P1WINS_STATE		equ 2
 RESET_STATE		equ 3
 START_STATE		equ 4
 PAUSE_STATE		equ 5
-NOWINR_STATE	equ $99 ; tie
-COUNTDOWN_STATE equ 128
-COUNTDOWN_VALUE	equ 60
-INIT_Player0X	equ 4
-INIT_Player1X	equ 152
-INIT_PlayerY	equ 36
-COLOR_Player0	equ 25
-COLOR_Player1	equ 130
-COLOR_Playfield	equ $44
+NOWINR_STATE		equ $99 ; tie
+COUNTDOWN_STATE 	equ 128
+COUNTDOWN_VALUE		equ 60
+INIT_Player0X		equ 4
+INIT_Player1X		equ 152
+INIT_PlayerY		equ 36
+COLOR_Player0		equ 25
+COLOR_Player1		equ 130
+COLOR_Playfield 	equ $44
 TXT_GETREAD		equ 0
 TXT_PLAYER0		equ 72
 TXT_PLAYER1		equ 144
@@ -1138,7 +1138,6 @@ pf2_r:
 		ora BitReprF2,x		
 		sta PF2_right,y	
 		rts	
-
 ;===============================================================================
 ; MovePlayerAround
 ; --------------
@@ -1226,32 +1225,33 @@ SkipMoveRight
 ;        sta Controls
 ;        rts
 
-CRTP0UP		.byte #%00010000       
-CRTP1UP		.byte #%00000001       
+CRTP0UP			.byte #%00010000       
+CRTP1UP			.byte #%00000001       
 
-CRTP0DOWN	.byte #%00100000
-CRTP1DOWN	.byte #%00000010
+CRTP0DOWN		.byte #%00100000
+CRTP1DOWN		.byte #%00000010
 
-CRTP0LEFT	.byte #%01000000
-CRTP1LEFT	.byte #%00000100
+CRTP0LEFT		.byte #%01000000
+CRTP1LEFT		.byte #%00000100
 
-CRTP0RIGHT	.byte #%10000000        
-CRTP1RIGHT	.byte #%00001000	
+CRTP0RIGHT		.byte #%10000000        
+CRTP1RIGHT		.byte #%00001000	
 
-CRTP0HALF	.byte $F0
-CRTP1HALF	.byte $0F
+CRTP0HALF		.byte $F0
+CRTP1HALF		.byte $0F
 
-CRTP0MERGE	.byte $0F
-CRTP1MERGE	.byte $F0
+CRTP0MERGE		.byte $0F
+CRTP1MERGE		.byte $F0
 
-BitReprF0	.byte #%00010000,#%00100000,#%01000000,#%10000000
+BitReprF0		.byte #%00010000,#%00100000,#%01000000,#%10000000
 
-BitReprF1	.byte #%10000000,#%01000000,#%00100000,#%00010000,#%00001000,#%00000100,#%00000010,#%00000001
+BitReprF1		.byte #%10000000,#%01000000,#%00100000,#%00010000,#%00001000,#%00000100,#%00000010,#%00000001
 
-BitReprF2	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
+BitReprF2		.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
 
 ; Bitmap pattern for digits
 DigitsBitmap 
+
 			.byte $EE,$AA,$AA,$AA,$EE;0
 			.byte $22,$22,$22,$22,$22;1
 			.byte $EE,$88,$EE,$22,$EE;2
