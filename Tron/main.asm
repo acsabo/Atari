@@ -1225,146 +1225,146 @@ SkipMoveRight
 ;        sta Controls
 ;        rts
 
-CRTP0UP			.byte #%00010000       
-CRTP1UP			.byte #%00000001       
+CRTP0UP		.byte #%00010000       
+CRTP1UP		.byte #%00000001       
 
-CRTP0DOWN		.byte #%00100000
-CRTP1DOWN		.byte #%00000010
+CRTP0DOWN	.byte #%00100000
+CRTP1DOWN	.byte #%00000010
 
-CRTP0LEFT		.byte #%01000000
-CRTP1LEFT		.byte #%00000100
+CRTP0LEFT	.byte #%01000000
+CRTP1LEFT	.byte #%00000100
 
-CRTP0RIGHT		.byte #%10000000        
-CRTP1RIGHT		.byte #%00001000	
+CRTP0RIGHT	.byte #%10000000        
+CRTP1RIGHT	.byte #%00001000	
 
-CRTP0HALF		.byte $F0
-CRTP1HALF		.byte $0F
+CRTP0HALF	.byte $F0
+CRTP1HALF	.byte $0F
 
-CRTP0MERGE		.byte $0F
-CRTP1MERGE		.byte $F0
+CRTP0MERGE	.byte $0F
+CRTP1MERGE	.byte $F0
 
-BitReprF0		.byte #%00010000,#%00100000,#%01000000,#%10000000
+BitReprF0	.byte #%00010000,#%00100000,#%01000000,#%10000000
 
-BitReprF1		.byte #%10000000,#%01000000,#%00100000,#%00010000,#%00001000,#%00000100,#%00000010,#%00000001
+BitReprF1	.byte #%10000000,#%01000000,#%00100000,#%00010000,#%00001000,#%00000100,#%00000010,#%00000001
 
-BitReprF2		.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
+BitReprF2	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000
 
 ; Bitmap pattern for digits
 DigitsBitmap 
 
-			.byte $EE,$AA,$AA,$AA,$EE;0
-			.byte $22,$22,$22,$22,$22;1
-			.byte $EE,$88,$EE,$22,$EE;2
-			.byte $EE,$22,$66,$22,$EE;3
-			.byte $22,$22,$EE,$AA,$AA;4
-			.byte $EE,$22,$EE,$88,$EE;5
-			.byte $EE,$AA,$EE,$88,$EE;6
-			.byte $22,$22,$22,$22,$EE;7
-			.byte $EE,$AA,$EE,$AA,$EE;8
-			.byte $EE,$22,$EE,$AA,$EE;9
+		.byte $EE,$AA,$AA,$AA,$EE;0
+		.byte $22,$22,$22,$22,$22;1
+		.byte $EE,$88,$EE,$22,$EE;2
+		.byte $EE,$22,$66,$22,$EE;3
+		.byte $22,$22,$EE,$AA,$AA;4
+		.byte $EE,$22,$EE,$88,$EE;5
+		.byte $EE,$AA,$EE,$88,$EE;6
+		.byte $22,$22,$22,$22,$EE;7
+		.byte $EE,$AA,$EE,$AA,$EE;8
+		.byte $EE,$22,$EE,$AA,$EE;9
 
 GradientColorBK
-			.byte #$64        
-			.byte #$66
-			.byte #$68
-			.byte #$66
-			.byte #$64        
-			.byte #$62	; edge
-        
+		.byte #$64        
+		.byte #$66
+		.byte #$68
+		.byte #$66
+		.byte #$64        
+		.byte #$62	; edge
+
 GradientColorGrid     
-			.byte #0
-			.byte #0
-			.byte #0
-			.byte #0
-			.byte #80
-			.byte #0
-			.byte #0
-			.byte #0
+		.byte #0
+		.byte #0
+		.byte #0
+		.byte #0
+		.byte #80
+		.byte #0
+		.byte #0
+		.byte #0
 TextPanel
-			;TextTextGetReady
-			;GET
-			.byte #$00,#$00,#$00,#$00,#$80,#$00
-			.byte #$00,#$00,#$DE,#$B0,#$E0,#$00
-			.byte #$00,#$00,#$42,#$20,#$80,#$00
-			.byte #$00,#$00,#$DA,#$30,#$80,#$00
-			.byte #$00,#$00,#$52,#$00,#$80,#$00
-			.byte #$00,#$00,#$DE,#$30,#$80,#$00
-			;READY
-			.byte #$00,#$00,#$00,#$00,#$02,#$00
-			.byte #$00,#$03,#$DD,#$D0,#$AA,#$00
-			.byte #$00,#$02,#$45,#$50,#$AA,#$00
-			.byte #$00,#$03,#$CC,#$50,#$BA,#$00
-			.byte #$00,#$02,#$45,#$50,#$90,#$00
-			.byte #$00,#$02,#$5D,#$D0,#$12,#$00        
-			;TextPlayer0Wins
-			;Player 1
-			.byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1
-			.byte #$00,#$2A,#$54,#$50,#$28,#$01; line #2
-			.byte #$00,#$2A,#$54,#$50,#$28,#$01; line #3
-			.byte #$00,#$3A,#$DC,#$D0,#$30,#$01; line #4
-			.byte #$00,#$22,#$94,#$40,#$28,#$01; line #5
-			.byte #$00,#$23,#$95,#$C0,#$A9,#$03; line #6
-			;Wins
-			.byte #$00,#$00,#$00,#$00,#$00,#$00; line #12
-			.byte #$00,#$00,#$51,#$90,#$70,#$00; line #13
-			.byte #$00,#$00,#$51,#$90,#$40,#$00; line #14
-			.byte #$00,#$00,#$55,#$B0,#$30,#$00; line #15
-			.byte #$00,#$00,#$5B,#$D0,#$10,#$00; line #16
-			.byte #$00,#$00,#$51,#$90,#$70,#$00; line #17
-			;TextPlayer1Wins
-			;Player 2
-			.byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1
-			.byte #$00,#$2A,#$54,#$50,#$28,#$02; line #2
-			.byte #$00,#$2A,#$54,#$50,#$28,#$02; line #3
-			.byte #$00,#$3A,#$DC,#$D0,#$30,#$01; line #4
-			.byte #$00,#$22,#$94,#$40,#$29,#$00; line #5
-			.byte #$00,#$23,#$95,#$C0,#$A9,#$03; line #6
-			;Wins
-			.byte #$00,#$00,#$00,#$00,#$00,#$00; line #12
-			.byte #$00,#$00,#$51,#$90,#$70,#$00; line #13
-			.byte #$00,#$00,#$51,#$90,#$40,#$00; line #14
-			.byte #$00,#$00,#$55,#$B0,#$30,#$00; line #15
-			.byte #$00,#$00,#$5B,#$D0,#$10,#$00; line #16
-			.byte #$00,#$00,#$51,#$90,#$70,#$00; line #17 
+		;TextTextGetReady
+		;GET
+		.byte #$00,#$00,#$00,#$00,#$80,#$00
+		.byte #$00,#$00,#$DE,#$B0,#$E0,#$00
+		.byte #$00,#$00,#$42,#$20,#$80,#$00
+		.byte #$00,#$00,#$DA,#$30,#$80,#$00
+		.byte #$00,#$00,#$52,#$00,#$80,#$00
+		.byte #$00,#$00,#$DE,#$30,#$80,#$00
+		;READY
+		.byte #$00,#$00,#$00,#$00,#$02,#$00
+		.byte #$00,#$03,#$DD,#$D0,#$AA,#$00
+		.byte #$00,#$02,#$45,#$50,#$AA,#$00
+		.byte #$00,#$03,#$CC,#$50,#$BA,#$00
+		.byte #$00,#$02,#$45,#$50,#$90,#$00
+		.byte #$00,#$02,#$5D,#$D0,#$12,#$00        
+		;TextPlayer0Wins
+		;Player 1
+		.byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1
+		.byte #$00,#$2A,#$54,#$50,#$28,#$01; line #2
+		.byte #$00,#$2A,#$54,#$50,#$28,#$01; line #3
+		.byte #$00,#$3A,#$DC,#$D0,#$30,#$01; line #4
+		.byte #$00,#$22,#$94,#$40,#$28,#$01; line #5
+		.byte #$00,#$23,#$95,#$C0,#$A9,#$03; line #6
+		;Wins
+		.byte #$00,#$00,#$00,#$00,#$00,#$00; line #12
+		.byte #$00,#$00,#$51,#$90,#$70,#$00; line #13
+		.byte #$00,#$00,#$51,#$90,#$40,#$00; line #14
+		.byte #$00,#$00,#$55,#$B0,#$30,#$00; line #15
+		.byte #$00,#$00,#$5B,#$D0,#$10,#$00; line #16
+		.byte #$00,#$00,#$51,#$90,#$70,#$00; line #17
+		;TextPlayer1Wins
+		;Player 2
+		.byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1
+		.byte #$00,#$2A,#$54,#$50,#$28,#$02; line #2
+		.byte #$00,#$2A,#$54,#$50,#$28,#$02; line #3
+		.byte #$00,#$3A,#$DC,#$D0,#$30,#$01; line #4
+		.byte #$00,#$22,#$94,#$40,#$29,#$00; line #5
+		.byte #$00,#$23,#$95,#$C0,#$A9,#$03; line #6
+		;Wins
+		.byte #$00,#$00,#$00,#$00,#$00,#$00; line #12
+		.byte #$00,#$00,#$51,#$90,#$70,#$00; line #13
+		.byte #$00,#$00,#$51,#$90,#$40,#$00; line #14
+		.byte #$00,#$00,#$55,#$B0,#$30,#$00; line #15
+		.byte #$00,#$00,#$5B,#$D0,#$10,#$00; line #16
+		.byte #$00,#$00,#$51,#$90,#$70,#$00; line #17 
 
 Countdown  ;PF2  PF0 
-			;Number 1
-			.byte #$80,#$00
-			.byte #$80,#$00
-			.byte #$80,#$00
-			.byte #$80,#$00
-			.byte #$80,#$00
-			;Number 2
-			.byte #$C0,#$10
-			.byte #$00,#$10
-			.byte #$80,#$00
-			.byte #$40,#$00
-			.byte #$C0,#$10
-			;Number 3
-			.byte #$C0,#$10
-			.byte #$00,#$10
-			.byte #$80,#$00
-			.byte #$00,#$10
-			.byte #$C0,#$10
+		;Number 1
+		.byte #$80,#$00
+		.byte #$80,#$00
+		.byte #$80,#$00
+		.byte #$80,#$00
+		.byte #$80,#$00
+		;Number 2
+		.byte #$C0,#$10
+		.byte #$00,#$10
+		.byte #$80,#$00
+		.byte #$40,#$00
+		.byte #$C0,#$10
+		;Number 3
+		.byte #$C0,#$10
+		.byte #$00,#$10
+		.byte #$80,#$00
+		.byte #$00,#$10
+		.byte #$C0,#$10
 
 RandomDirP1   
-			.byte #%00000100;LEFT
-			.byte #%00000001;UP
-			.byte #%00001000;RIGHT
-			.byte #%00000010;DOWN
-			.byte #%00000100;LEFT
-			.byte #%00000001;UP
-			.byte #%00001000;RIGHT
-			.byte #%00000010;DOWN
-			.byte #%00000100;LEFT
-			.byte #%00000001;UP
-			.byte #%00001000;RIGHT
-			.byte #%00000010;DOWN
-			.byte #%00000100;LEFT
-			.byte #%00000001;UP
-			.byte #%00001000;RIGHT
-			.byte #%00000010;DOWN
-			.byte #%00000100;LEFT        
+		.byte #%00000100;LEFT
+		.byte #%00000001;UP
+		.byte #%00001000;RIGHT
+		.byte #%00000010;DOWN
+		.byte #%00000100;LEFT
+		.byte #%00000001;UP
+		.byte #%00001000;RIGHT
+		.byte #%00000010;DOWN
+		.byte #%00000100;LEFT
+		.byte #%00000001;UP
+		.byte #%00001000;RIGHT
+		.byte #%00000010;DOWN
+		.byte #%00000100;LEFT
+		.byte #%00000001;UP
+		.byte #%00001000;RIGHT
+		.byte #%00000010;DOWN
+		.byte #%00000100;LEFT        
 
 ;===============================================================================
 ; free space check before End of Cartridge
