@@ -24,7 +24,7 @@
         ; address space and also removes support for external interrupts.
 	PROCESSOR 6502
 
-        include "vcs.h"tg
+        include "vcs.h"
         include "macro.h"
         include "xmacro.h"
  

@@ -159,5 +159,18 @@ VERSION_MACRO         = 106
       REPEND
    ENDM
 
+;-------------------------------------------------------
+; SKIP_SCANLINES #lines
+;
+; Skip a given # of scanlines.
+; Sets the X register to zero.
+
+	MAC SKIP_SCANLINES
+.LINES  SET {1}
+	ldx #.LINES
+.vblank	sta WSYNC
+	dex
+	bne .vblank
+	ENDM
 
 ; EOF
