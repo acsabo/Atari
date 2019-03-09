@@ -28,7 +28,7 @@
         include "macro.h"
         include "xmacro.h"
  
-SPEED		equ 2;12
+SPEED		equ 12
 SpriteHeight	equ 8 
 MaxRows		equ 18
 PARP0 		equ 0
