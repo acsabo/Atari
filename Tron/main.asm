@@ -46,8 +46,8 @@ NORMAL_STATE		equ 8
                                                                                                                                                                                                                       
 NO_WINNER		equ $99 ; tie                                                                                                                                              
 COUNTDOWN_VALUE		equ 60                                                                                                                                                                                        
-INIT_Player0X		equ 4                                                                                                                                                                                         
-INIT_Player1X		equ 152                                                                                                                                                                                       
+INIT_Player0X		equ 8                                                                                                                                                                                         
+INIT_Player1X		equ 148                                                                                                                                                                                       
 INIT_PlayerY		equ 36                                                                                                                                                                                        
 COLOR_Player0		equ 25                                                                                                                                                                                        
 COLOR_Player1		equ 130                                                                                                                                                                                       
@@ -70,7 +70,8 @@ TRACK_MODE		equ 1
                                                                                                                                                                                                                       
 	; RAM starts at $80                                                                                                                                                                                           
 	ORG $80                                                                                                                                                                                                       
-                                                                                                                                                                                                                      
+
+
 ;Defines the grid/matrix to track players movement                                                                                                                                                                    
 PF0_left	ds 19                                                                                                                                                                                                 
 PF1_left	ds 19                                                                                                                                                                                                 
@@ -162,26 +163,30 @@ initGrid:
 InitSystem                                                                                                                                                                                                            
 		; CLEAN_START is a macro found in macro.h                                                                                                                                                             
 		; it sets all RAM, TIA registers and CPU registers to 0                                                                                                                                               
-		CLEAN_START                                                                                                                                                                                           
+		CLEAN_START         
                                                                                                                                                                                                                       
 		lda #INITIAL_STATE                                                                                                                                                                                    
 		sta GameState                                                                                                                                                                                         
 		sta Controls                                                                                                                                                                                          
                                                                                                                                                                                                                       
-		jsr ResetPositions                                                                                                                                                                                    
+		jsr ResetPositions    
                                                                                                                                                                                                                       
 		;player color                                                                                                                                                                                         
 		lda #COLOR_Player0                                                                                                                                                                                    
 		sta COLUP0                                                                                                                                                                                            
 		lda #COLOR_Player1                                                                                                                                                                                    
-		sta COLUP1                                                                                                                                                                                            
-                                                                                                                                                                                                                      
+		sta COLUP1        
+                
+                
+        	ldy #sfxCOLLECT    ; Game Over sound effect
+        	jsr SFX_TRIGGER                       
+                
 ;===============================================================================                                                                                                                                      
 ; Main Program Loop                                                                                                                                                                                                   
 ;===============================================================================                                                                                                                                      
                                                                                                                                                                                                                       
 Main:                                                                                                                                                                                                                 
-                                                                                                                                                                                                                      
+		         
 ;===============================================================================                                                                                                                                      
 ; Vertical Sync                                                                                                                                                                                                       
 ; -------------                                                                                                                                                                                                       
@@ -207,7 +212,8 @@ Main:
 ; game logic runs here.  Coming soon!                                                                                                                                                                                 
 ;===============================================================================                                                                                                                                      
                                                                                                                                                                                                                       
-		;MORE CODE CAN COME IN HERE!!!                                                                                                                                                                        
+		;MORE CODE CAN COME IN HERE!!!        
+                jsr SFX_UPDATE
                                                                                                                                                                                                                       
 		;line delimiter before grid                                                                                                                                                                           
 		lda #$68                                                                                                                                                                                              
@@ -232,13 +238,17 @@ Kernel
 		SLEEP 2;10 ; to make timing analysis work out                                                                                                                                                         
                                                                                                                                                                                                                       
 		jsr DrawGrid                                                                                                                                                                                          
-                                                                                                                                                                                                                      
+                               
+		                               
+		;sta WSYNC                                                                                                                                                                                             
 		sta WSYNC                                                                                                                                                                                             
 		sta WSYNC                                                                                                                                                                                             
 		sta WSYNC                                                                                                                                                                                             
 		sta WSYNC                                                                                                                                                                                             
-		sta WSYNC                                                                                                                                                                                             
-		sta WSYNC                                                                                                                                                                                             
+		sta WSYNC 
+                
+           
+                sta WSYNC
                                                                                                                                                                                                                       
 ;===============================================================================                                                                                                                                      
 ; Scoreboard                                                                                                                                                                                                          
@@ -322,7 +332,7 @@ nxtScanLine:
 		; generating and adjust accordingly.                                                                                                                                                                  
 		lda #32     ; set timer for 27 scanlines, 32 = ((27 * 76) / 64)                                                                                                                                       
 		sta TIM64T  ; set timer to go off in 27 scanlines                                                                                                                                                     
-                                                                                                                                                                                                                      
+		
 ;===============================================================================                                                                                                                                      
 ; CHECKING SWITCHES                                                                                                                                                                                                   
 ;===============================================================================                                                                                                                                      
@@ -353,7 +363,7 @@ SkipSelect:
 		lsr			; D0 is now in C                                                                                                                                              
 		bcs SkipSwitches	; if D0 was on, the RESET switch was not held                                                                                                                                 
                                                                                                                                                                                                                       
-StartGame:                                                                                                                                                                                                            
+StartGame:                     
 		jsr ResetGame		; prepare game state                                                                                                                                                          
 		jsr ResetPositions	; reset the grid                                                                                                                                                              
                                                                                                                                                                                                                       
@@ -365,10 +375,11 @@ StartGame:
 		lda #20			; set initial countdown to 3                                                                                                                                                  
 		sta VarP0; start from 3                                                                                                                                                                               
 		lda #COUNTDOWN_VALUE                                                                                                                                                                                  
-		sta VarP1; restart timer                                                                                                                                                                              
+		sta VarP1; restart timer        
+                
 		jmp OSwait                                                                                                                                                                                            
                                                                                                                                                                                                                       
-ResetTurn:                                                                                                                                                                                                            
+ResetTurn:                               
 		lda #20			; set initial countdown to 3                                                                                                                                                  
 		sta VarP0; start from 3                                                                                                                                                                               
 		lda #COUNTDOWN_VALUE                                                                                                                                                                                  
@@ -385,7 +396,10 @@ ResetTurn:
 		lda GameState                                                                                                                                                                                              
 		and #$F0                                                                                                                                                                                            
 		ora #NORMAL_STATE                                                                                                                                                                                    
-		sta GameState                                                                                                                                                                                         
+		sta GameState       
+                
+        	ldy #sfxCOLLECT     ; select sound effect
+        	jsr SFX_TRIGGER     ; and trigger it                    
                                                                                                                                                                                                                       
 		jmp OSwait                                                                                                                                                                                            
 SkipSwitches:                                                                                                                                                                                                         
@@ -435,6 +449,7 @@ SkipPause0:
 		bit INPT5                                                                                                                                                                                             
 		bmi SkipPause                                                                                                                                                                                         
 ButtonPressed:	
+
 		lda #RESET_STATE
                 and #$0F
 SkipPause:                                                                                                                                                                                                            
@@ -451,8 +466,10 @@ SkipPause:
 		cmp #TIE_STATE                                                                                                                                                                                        
 		bne SkipNoWinner                                                                                                                                                                                      
                                                                                                                                                                                                                       
-		ldy #$FF                                                                                                                                                                                              
-		jsr DrawText                                                                                                                                                                                          
+		;ldy #$FF                                                                                                                                                                                              
+		;jsr DrawText             
+        	;ldy #sfxCOLLIDE     ; select sound effect
+        	;jsr SFX_TRIGGER     ; and trigger it                   
 		jmp OSwait                                                                                                                                                                                            
 SkipNoWinner:                                                                                                                                                                                                         
                                                                                                                                                                                                                       
@@ -485,7 +502,8 @@ SkipDrawGetReady:
 		cmp #COUNTDOWN_STATE                                                                                                                                                                                  
 		bne SkipCountdown                                                                                                                                                                                     
                                                                                                                                                                                                                       
-		jsr DrawCountdown                                                                                                                                                                                     
+		jsr DrawCountdown           
+                
 		jmp OSwait                                                                                                                                                                                            
 SkipCountdown:                                                                                                                                                                                                        
 		;Do nothing if Paused                                                                                                                                                                                 
@@ -594,7 +612,7 @@ SkipUpdates:
 ;===============================================================================                                                                                                                                      
 OSwait:                                                                                                                                                                                                               
                                                                                                                                                                                                                       
-                                                                                                                                                                                                                      
+                
 		;Clear collision detection for this frame                                                                                                                                                             
 		sta CXCLR                                                                                                                                                                                             
 		;------------------------                                                                                                                                                                             
@@ -602,7 +620,7 @@ OSwait:
 		sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)                                                                                                                                         
 		lda INTIM   ; Check the timer                                                                                                                                                                         
 		bne OSwait  ; Branch if its Not Equal to 0                                                                                                                                                            
-                                                                                                                                                                                                                      
+                               
 		jmp Main            ; JuMP to Main                                                                                                                                                                    
                                                                                                                                                                                                                       
 ;===============================================================================                                                                                                                                      
@@ -958,7 +976,7 @@ CollP0:
 SkipP0Inc: 	                                                                                                                                                                                                      
 		lda GameState                                                                                                                                                                                         
 		and #$0F                                                                                                                                                                                              
-		cmp #P1WINS_STATE;                                                                                                                                                                                    
+		cmp #P1WINS_STATE                                                                                                                                                                             
 		beq DoNothing	                                                                                                                                                                                      
                                                                                                                                                                                                                       
 		lda GameState                                                                                                                                                                                              
@@ -1399,16 +1417,156 @@ RandomDirP1
 		.byte #%00001000;RIGHT                                                                                                                                                                                
 		.byte #%00000010;DOWN                                                                                                                                                                                 
 		.byte #%00000100;LEFT                                                                                                                                                                                 
-                                                                                                                                                                                                                      
+                
 ;===============================================================================                                                                                                                                      
 ; free space check before End of Cartridge                                                                                                                                                                            
 ;===============================================================================                                                                                                                                      
                                                                                                                                                                                                                       
-	;if (* & $FF)                                                                                                                                                                                                 
-	;echo "------", [$FFFA - *]d, "bytes free before End of Cartridge"                                                                                                                                            
-		align 256                                                                                                                                                                                             
-	;endif                                                                                                                                                                                                        
-                                                                                                                                                                                                                      
+;	if (* & $FF)                                                                                                                                                                                                 
+;	echo "------", [$FFFA - *]d, "bytes free before End of Cartridge"                                                                                                                                            
+;		align 256;256                                                                                                                                                                                             
+;	endif                                                                                                                                                                                                        
+        
+  
+; Like player graphics, sound data is stored in reverse order.
+; two tables are used, SFX_F and SFX_CV.  Values in the tables are used in
+; pairs, one from SFX_F and one from SFX_CV.  As such, both tables must be the
+; same size.  Also, the size of each table is limited to just 256 bytes. DASM
+; will output a compile-time warning if it spots a size problem.
+;
+; Each pair of values are used for a single frame (ie: 1/60th of a secon).  A
+; 0 value in the SFX_CV table means "end of sound effect", though for clarity
+; it is recommended to also use a matching 0 in SFX_F.
+;
+; table SFX_F holds the Frequency for the sound effects.  
+; each .byte line contains the Frequency data for a single sound effect.
+; Frequency values range from 0-31
+SFX_F:
+    .byte 0, 31 ; collide
+    .byte 0,  0,  0,  0,  1,  1,  1,  2,  2,  2,  3,  3,  3 ; collect
+    .byte 0,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8 ; ping
+    .byte 0, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 ; game over
+ 
+; calculate size of SFX_F table and validate size
+SFX_Fcount = *-SFX_F
+ if SFX_Fcount > 256
+     echo "SFX Warning: table SFX_F is too large"
+ endif
+  
+ 
+; table SFX_CV holds the sound effect Channel (tone) and Volume values.
+; Both values range from 0-15, so they are combined together.
+; The $ denotes a HEX value where the digits are 0123456789abcdef (a=10, f=15).
+; the first digit is the Channel value. 
+; the second digit is the Volume value.
+; each .byte line contains the Channel and Volume data for a single sound effect
+; the first value of every .byte line should be 0, which denotes end-of-sfx
+; the = line below each .byte line calculates the value used when calling
+; sfxtrigger.  
+; Channel values are:
+; 0 = No sound (silent).
+; 1 = Buzzy tones.
+; 2 = Carries distortion 1 downward into a rumble.
+; 3 = Flangy wavering tones, like a UFO.
+; 4 = Pure tone.
+; 5 = Same as 4.
+; 6 = Between pure tone and buzzy tone (Adventure death uses this).
+; 7 = Reedy tones, much brighter, down to Enduro car rumble.
+; 8 = White noise/explosions/lightning, jet/spacecraft engine.
+; 9 = Same as 7.
+; a = Same as 6.	 	 
+; b = Same as 0.
+; c = Pure tone, goes much lower in pitch than 4 & 5.
+; d = Same as c.	 	 
+; e = Electronic tones, mostly lows, extends to rumble. 
+; f = Electronic tones, mostly lows, extends to rumble.
+
+SFX_CV:
+    .byte 0,$8f ; collide
+sfxCOLLIDE = *-SFX_CV-1
+    .byte 0,$6f,$6f,$6f,$6f,$6f,$6f,$6f,$6f,$6f,$6f,$6f,$6f ; collect
+sfxCOLLECT = *-SFX_CV-1
+    .byte 0,$41,$42,$43,$44,$45,$46,$47,$48,$49,$4a,$4b,$4c,$4d,$4e,$4f ; ping
+sfxPING = *-SFX_CV-1
+    .byte 0,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf,$cf ; game over
+sfxGAMEOVER = *-SFX_CV-1
+ 
+ ; calculate size of SFX_CV table and validate size
+SFX_CVcount = *-SFX_CV
+
+ if SFX_CVcount > 256
+     echo "SFX Warning: table SFX_CV is too large"
+ endif
+ if SFX_CVcount != SFX_Fcount
+    echo "SFX Warning: table SFX_F is not the same size as table SFX_CV"
+ endif
+
+
+SFX_OFF subroutine
+         ldx #0             ; silence sound output
+         stx PF0_left
+         stx PF0_right
+         stx AUDV0
+         stx AUDV1
+         stx AUDC0
+         stx AUDC1
+         rts
+
+SFX_TRIGGER subroutine
+         ldx PF0_left       ; test left channel
+         lda SFX_CV,x        ; CV value will be 0 if channel is idle 
+         bne .leftnotfree   ; if not 0 then skip ahead
+         sty PF0_left       ; channel is idle, use it
+         rts                ; all done
+.leftnotfree: 
+         ldx PF0_right      ; test right channel
+         lda SFX_CV,x        ; CV value will be 0 if channel is idle
+         bne .rightnotfree  ; if not 0 then skip ahead
+         sty PF0_right      ; channel is idle, use it
+         rts                ; all done
+.rightnotfree:
+         cpy PF0_left       ; test sfx priority with left channel
+         bcc .leftnotlower  ; skip ahead if new sfx has lower priority than active sfx
+         sty PF0_left       ; new sfx has higher priority so use left channel
+         rts                ; all done
+.leftnotlower: 
+         cpy PF0_right      ; test sfx with right channel
+         bcc .rightnotlower ; skip ahead if new sfx has lower priority than active sfx
+         sty PF0_right      ; new sfx has higher priority so use right channel
+.rightnotlower:
+        rts
+ 
+SFX_UPDATE subroutine
+         ldx PF0_left       ; get the pointer for the left channel
+         lda SFX_F,x         ; get the Frequency value
+         sta AUDF0          ; update the Frequency register
+         lda SFX_CV,x        ; get the combined Control and Volume value
+         sta AUDV0          ; update the Volume register
+         lsr                ; prep the Control value,
+         lsr                ;   it's stored in the upper nybble
+         lsr                ;   but must be in the lower nybble
+         lsr                ;   when Control is updated
+         sta AUDC0          ; update the Control register
+         beq .skipleftdec   ; skip ahead if Control = 0
+         dec PF0_left       ; update pointer for left channel
+.skipleftdec: 
+         ldx PF0_right      ; get the pointer for the right channel
+         lda SFX_F,x         ; get the Frequency value
+         sta AUDF1          ; update the Frequency register
+         lda SFX_CV,x        ; get the combined Control and Volume value
+         sta AUDV1          ; update the Volume register
+         lsr                ; prep the Control value,
+         lsr                ;   it's stored in the upper nybble
+         lsr                ;   but must be in the lower nybble
+         lsr                ;   when Control is updated
+         sta AUDC1          ; update the Control register
+         beq .skiprightdec  ; skip ahead if Control = 0
+         dec PF0_right      ; update pointer for right channel
+.skiprightdec:
+         rts                ; all done
+ 
+
+         
 ;===============================================================================                                                                                                                                      
 ; Define End of Cartridge                                                                                                                                                                                             
 ;===============================================================================                                                                                                                                      
