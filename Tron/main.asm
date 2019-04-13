@@ -46,6 +46,9 @@ NORMAL_STATE		equ 8
 
 PS_P0_TURN		equ %10000000
 PS_P1_TURN		equ %00001000
+PS_P0_POWR		equ %01000000
+PS_P1_POWR		equ %00000100
+
                                                                                                                                                                                                                       
 NO_WINNER		equ $99 ; tie                                                                                                                                              
 COUNTDOWN_VALUE		equ 60                                                                                                                                                                                        
@@ -112,6 +115,7 @@ VarP0		.byte
 VarP1		.byte                                                                                                                                                                                                 
 
 PlayerState	.byte
+PowerUps	.byte
 SndP0		.byte                                                                                                                                                                                                 
 SndP1		.byte  
 
@@ -132,6 +136,10 @@ ResetGame subroutine
 		lda #$00                                                                                                                                                                                              
 		sta Scores
                 sta PlayerState
+                
+                ;store powerups for each player
+                lda #%00110011
+                sta PowerUps
                                                                                                                                                                                                                       
 		rts                                                                                                                                                                                                   
                                                                                                                                                                                                                       
@@ -190,8 +198,6 @@ InitSystem
                                                                                                                                                                                                                       
 		jsr ResetPositions    
   
-                
-                
         	ldy #sfxCOLLECT    ; Game Over sound effect
         	jsr SFX_TRIGGER                       
                 
@@ -370,7 +376,8 @@ nxtScanLine:
 ; CHECKING SWITCHES                                                                                                                                                                                                   
 ;===============================================================================                                                                                                                                      
                                                                                                                                                                                                                       
-ProcessSwitches:                                                                                                                                                                                                   
+ProcessSwitches:     
+		
 		;may change the game mode
 		lda #$02
 		and SWCHB
@@ -389,7 +396,7 @@ SwithToTracks:
 		ora #TIE_STATE
 		sta GameState
 		
-		jmp StartGame;OSwait; SkipSwitches                                                                                                                                                                                     
+		jmp StartGame                                                                                                                                                                                    
 SkipSelect:                                                                                                                                                                                                           
 		;if not pressing RESET                                                                                                                                                                                
 		lda SWCHB		; load in the state of the switches                                                                                                                                   
@@ -409,6 +416,7 @@ StartGame:
 		sta VarP0; start from 3                                                                                                                                                                               
 		lda #COUNTDOWN_VALUE                                                                                                                                                                                  
 		sta VarP1; restart timer        
+                
                 
 		jmp OSwait                                                                                                                                                                                            
                                                                                                                                                                                                                       
@@ -433,7 +441,7 @@ ResetTurn:
                 
         	ldy #sfxCOLLECT     ; select sound effect
         	jsr SFX_TRIGGER     ; and trigger it                    
-                                                                                                                                                                                                                      
+                
 		jmp OSwait                                                                                                                                                                                            
 SkipSwitches:                                                                                                                                                                                                         
                                                                                                                                                                                                                       
@@ -466,35 +474,59 @@ SkipSwitches:
 		ora #TIE_STATE                                                                                                                                                                                        
 		sta GameState                                                                                                                                                                                         
 SkipTie:                                                                                                                                                                                                              
-                                                                                                                                                                                                                      
-		;load the Game Status	                                                                                                                                                                              
-		lda GameState                                                                                                                                                                                         
-		and #$0F	; to ignore the Game State                                                                                                                                                            
-                                                                                                                                                                                                                      
-		cmp #PAUSE_STATE                                                                                                                                                                                      
-		bne SkipPause                                                                                                                                                                                         
+                                                                                                                                                         
                                                                                                                                                                                                                       
 		;---- CONTINUE WHEN BUTTON IS PRESSED                                                                                                                                                                 
-		bit INPT4                                                                                                                                                                                             
-		bmi SkipPause0                                                                                                                                                                                        
-		jmp ButtonPressed                                                                                                                                                                                     
-SkipPause0:                                                                                                                                                                                                           
+		bit INPT4   
+		bmi SkipButtonP0        
+                ;P0 is pressing the button
+                lda #PS_P0_POWR
+                ora PlayerState
+                sta PlayerState
+                ;flag a button press
+                lda #1
+                sta TempP0
+                
+SkipButtonP0:                                                                                                                                                                                                           
 		bit INPT5                                                                                                                                                                                             
-		bmi SkipPause                                                                                                                                                                                         
-ButtonPressed:	
-
+		bmi SkipButtonP1  
+                ;P1 is pressing the button
+                lda #PS_P1_POWR
+                ora PlayerState
+                sta PlayerState       
+                
+                ;flag a button press
+                lda #1
+                sta TempP0
+SkipButtonP1: 
+		;load the Game Status	                                                                                                                                                                              
+		lda GameState                                                                                                                                                                                         
+		and #$0F	; to ignore the Game State   
+                
+                ;load Game State
+		cmp #PAUSE_STATE                                                                                                                                                                                      
+		bne SkipButtons
+                
+		;any button pressed?
+          	ldy TempP0
+                cpy #1
+                bne SkipButtons                
+                
+                ;will force a restart
 		lda #RESET_STATE
                 and #$0F
-SkipPause:                                                                                                                                                                                                            
-
-                
+SkipButtons:      
+         
 		;if in start mode                                                                                                                                                                                     
 		cmp #RESET_STATE                                                                                                                                                                                      
 		beq ResetTurn                                                                                                                                                                                         
                                                                                                                                                                                                                       
 		;restart the game                                                                                                                                                                                     
-		cmp #START_STATE                                                                                                                                                                                      
-		beq StartGame                                                                                                                                                                                         
+		cmp #START_STATE      
+		bne SkipStartGame
+                jmp StartGame 
+                
+SkipStartGame:                                                                                                                                                                                   
                                                                                                                                                                                                                       
 		;Checking for Tie                                                                                                                                                                                     
 		cmp #TIE_STATE                                                                                                                                                                                        
@@ -653,7 +685,7 @@ OSwait:
 		sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)                                                                                                                                         
 		lda INTIM   ; Check the timer                                                                                                                                                                         
 		bne OSwait  ; Branch if its Not Equal to 0                                                                                                                                                            
-                               
+                            
 		jmp Main            ; JuMP to Main                                                                                                                                                                    
                                                                                                                                                                                                                       
 ;===============================================================================                                                                                                                                      
