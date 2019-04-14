@@ -1015,8 +1015,38 @@ TryCollP1:
 		jmp CollP0                                                                                                                                                                                            
 SkipCollP1:                                                                                                                                                                                                           
 		rts                                                                                                                                                                                                   
-                                                                                                                                                                                                                      
-CollP0: 	                                                                                                                                                                                                      
+                        
+CollP0: 	
+		;check for the poweup       
+		lda PlayerState
+                and #PS_P0_POWR
+                cmp #PS_P0_POWR
+                bne SkipPowerUpP0
+                
+
+                
+                ;lda #$00
+                
+                ;ora PlayerState
+                ;sta PlayerState
+                ;decrease power up
+                lda PowerUps
+                and #$F0
+                lsr
+                lsr
+                lsr
+                lsr
+                sbc #1
+                tay
+                asl
+                asl
+                asl
+                asl
+                ora PowerUps
+                sta PowerUps
+                cpy #0
+                bne DoNothing
+SkipPowerUpP0:                
 		; updating Score                                                                                                                                                                                      
 		lda Scores                                                                                                                                                                                            
 		and #$0F                                                                                                                                                                                              
@@ -1055,7 +1085,13 @@ SkipP0Inc:
                 ora PlayerState
                 sta PlayerState
 		rts                                                                                                                                                                                                   
-CollP1:                                                                                                                                                                                                               
+CollP1:           
+		;check for the poweup       
+                lda PlayerState
+                and #PS_P1_POWR
+                cmp #PS_P1_POWR
+                beq SkipCollP1
+                
 		; updating Score                                                                                                                                                                                      
 		lda Scores                                                                                                                                                                                            
 		lsr                                                                                                                                                                                                   
@@ -1330,26 +1366,6 @@ SkipMoveLeft
 		lda Player0Y,y                                                                                                                                                                                        
 SkipMoveRight	                                                                                                                                                                                                      
 		rts                                                                                                                                                                                                   
-                                                                                                                                                                                                                      
-;===============================================================================                                                                                                                                      
-; I.A Player 2                                                                                                                                                                                                        
-; --------------                                                                                                                                                                                                      
-;                                                                                                                                                                                                                     
-;===============================================================================                                                                                                                                      
-;UpdateIAPlayer	subroutine                                                                                                                                                                                            
-;	lda VarP0                                                                                                                                                                                                     
-;        inc VarP0                                                                                                                                                                                                    
-;        ;and $0F                                                                                                                                                                                                     
-;        ;lsr                                                                                                                                                                                                         
-;        ;lsr                                                                                                                                                                                                         
-;        ;lsr                                                                                                                                                                                                         
-;                                                                                                                                                                                                                     
-;        tay                                                                                                                                                                                                          
-;	lda RandomDirP1,y                                                                                                                                                                                             
-;        and $0F                                                                                                                                                                                                      
-;        ora Controls                                                                                                                                                                                                 
-;        sta Controls                                                                                                                                                                                                 
-;        rts                                                                                                                                                                                                          
                                                                                                                                                                                                                       
 CRTP0UP		.byte #%00010000                                                                                                                                                                                      
 CRTP1UP		.byte #%00000001                                                                                                                                                                                      
