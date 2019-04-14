@@ -1022,13 +1022,10 @@ CollP0:
                 and #PS_P0_POWR
                 cmp #PS_P0_POWR
                 bne SkipPowerUpP0
+                lda #$00
+                ora PlayerState
+                sta PlayerState
                 
-
-                
-                ;lda #$00
-                
-                ;ora PlayerState
-                ;sta PlayerState
                 ;decrease power up
                 lda PowerUps
                 and #$F0
@@ -1488,25 +1485,7 @@ Countdown  ;PF2  PF0
 		.byte #$80,#$00                                                                                                                                                                                       
 		.byte #$00,#$10                                                                                                                                                                                       
 		.byte #$C0,#$10                                                                                                                                                                                       
-                                                                                                                                                                                                                      
-RandomDirP1                                                                                                                                                                                                           
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
+                                                                                                                                                                         
                 
 ;===============================================================================                                                                                                                                      
 ; free space check before End of Cartridge                                                                                                                                                                            
