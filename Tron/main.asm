@@ -30,7 +30,7 @@
                                                                                                                                                                                                                       
 SPEED			equ 12                                                                                                                                                                                      
 SpriteHeight		equ 8                                                                                                                                                                                         
-MaxRows			equ 18                                                                                                                                                                                        
+MaxRows			equ 17                                                                                                                                                                                        
 PARP0			equ 0                                                                                                                                                                                         
 PARP1			equ 1                                                                                                                                                                                         
                                                                                                                                                                                                                       
@@ -43,6 +43,12 @@ PAUSE_STATE		equ 5
 TIE_STATE		equ 6   
 COUNTDOWN_STATE 	equ 7   
 NORMAL_STATE		equ 8
+
+PS_P0_TURN		equ %10000000
+PS_P1_TURN		equ %00001000
+PS_P0_POWR		equ %01000000
+PS_P1_POWR		equ %00000100
+
                                                                                                                                                                                                                       
 NO_WINNER		equ $99 ; tie                                                                                                                                              
 COUNTDOWN_VALUE		equ 60                                                                                                                                                                                        
@@ -73,12 +79,12 @@ TRACK_MODE		equ 1
 
 
 ;Defines the grid/matrix to track players movement                                                                                                                                                                    
-PF0_left	ds 19                                                                                                                                                                                                 
-PF1_left	ds 19                                                                                                                                                                                                 
-PF2_left	ds 19                                                                                                                                                                                                 
-PF0_right	ds 19                                                                                                                                                                                                 
-PF1_right	ds 19                                                                                                                                                                                                 
-PF2_right	ds 19                                                                                                                                                                                                 
+PF0_left	ds 18                                                                                                                                                                                                 
+PF1_left	ds 18                                                                                                                                                                                                 
+PF2_left	ds 18                                                                                                                                                                                                 
+PF0_right	ds 18                                                                                                                                                                                                 
+PF1_right	ds 18                                                                                                                                                                                                 
+PF2_right	ds 18                                                                                                                                                                                                 
                                                                                                                                                                                                                       
 ;Stores players positions (it will reset each frame)                                                                                                                                                                  
 TempP0		.byte                                                                                                                                                                                                 
@@ -107,7 +113,13 @@ GameState	.byte
 ;Used to control the countdown and text blink                                                                                                                                                                         
 VarP0		.byte                                                                                                                                                                                                 
 VarP1		.byte                                                                                                                                                                                                 
-                                                                                                                                                                                                                      
+
+;extras
+PlayerState	.byte
+PowerUps	.byte
+SndP0		.byte                                                                                                                                                                                                 
+SndP1		.byte  
+
 ;There's no bytes left :) the last one if for the stack pointer                                                                                                                                                       
                                                                                                                                                                                                                       
 ;===============================================================================                                                                                                                                      
@@ -123,7 +135,12 @@ VarP1		.byte
 ResetGame subroutine	                                                                                                                                                                                              
 		;init Score                                                                                                                                                                                           
 		lda #$00                                                                                                                                                                                              
-		sta Scores                                                                                                                                                                                            
+		sta Scores
+                sta PlayerState
+                
+                ;store powerups for each player
+                lda #%00110011
+                sta PowerUps
                                                                                                                                                                                                                       
 		rts                                                                                                                                                                                                   
                                                                                                                                                                                                                       
@@ -157,7 +174,18 @@ initGrid:
 		sta Player1Y                                                                                                                                                                                          
                                                                                                                                                                                                                       
 		ldy #4                                                                                                                                                                                                
-		sty SpeedCounter                                                                                                                                                                                      
+		sty SpeedCounter      
+
+		;reset status
+		lda #00
+                sta PlayerState                
+                                                                                                                                                                                                                      
+		;player color                                                                                                                                                                                         
+		lda #COLOR_Player0                                                                                                                                                                                    
+		sta COLUP0                                                                                                                                                                                            
+		lda #COLOR_Player1                                                                                                                                                                                    
+		sta COLUP1      
+                
 		rts                                                                                                                                                                                                   
                                                                                                                                                                                                                       
 InitSystem                                                                                                                                                                                                            
@@ -170,14 +198,7 @@ InitSystem
 		sta Controls                                                                                                                                                                                          
                                                                                                                                                                                                                       
 		jsr ResetPositions    
-                                                                                                                                                                                                                      
-		;player color                                                                                                                                                                                         
-		lda #COLOR_Player0                                                                                                                                                                                    
-		sta COLUP0                                                                                                                                                                                            
-		lda #COLOR_Player1                                                                                                                                                                                    
-		sta COLUP1        
-                
-                
+  
         	ldy #sfxCOLLECT    ; Game Over sound effect
         	jsr SFX_TRIGGER                       
                 
@@ -240,31 +261,57 @@ Kernel
 		jsr DrawGrid                                                                                                                                                                                          
                                
 		                               
+		sta WSYNC                                                                                                                                                                                             
+		; sta WSYNC                                                                                                                                                                                             
 		;sta WSYNC                                                                                                                                                                                             
-		sta WSYNC                                                                                                                                                                                             
-		sta WSYNC                                                                                                                                                                                             
-		sta WSYNC                                                                                                                                                                                             
-		sta WSYNC                                                                                                                                                                                             
-		sta WSYNC 
+		;sta WSYNC                                                                                                                                                                                             
+		;sta WSYNC                                                                                                                                                                                             
+		;sta WSYNC 
                 
            
-                sta WSYNC
+                ;sta WSYNC
                                                                                                                                                                                                                       
 ;===============================================================================                                                                                                                                      
 ; Scoreboard                                                                                                                                                                                                          
 ;===============================================================================                                                                                                                                      
-		ldx #5                                                                                                                                                                                                
+		;lda #%00000001; mirror mode 
+		;sta CTRLPF; -> CTRLPF    
+                
+                ldx #5                                                                                                                                                                                                
 		lda GradientColorBK,x		                                                                                                                                                                      
 		sta COLUBK		                                                                                                                                                                              
                                                                                                                                                                                                                       
-		lda #%00000010; score mode                                                                                                                                                                            
-		sta CTRLPF                                                                                                                                                                                            
-                                                                                                                                                                                                                      
+		lda #%00000011; score mode                                                                                                                                                                            
+		sta CTRLPF  
+                
+                ;blink feedback
+                lda PlayerState
+                and #PS_P0_TURN
+                cmp #PS_P0_TURN
+                bne SkipP0Blink
+                ;---
+                lda VarP0;random color
+                sta COLUP0  
+                
+SkipP0Blink:    
+                lda PlayerState
+                and #PS_P1_TURN
+                cmp #PS_P1_TURN
+                bne SkipP1Blink
+                
+                lda VarP0;random color
+                sta COLUP1             
+                
+
+SkipP1Blink:     
+
 		ldx #4 ; digit height                                                                                                                                                                                 
 nxtDigitLine:                                                                                                                                                                                                         
 		lda #0                                                                                                                                                                                                
 		sta PF1                                                                                                                                                                                               
-		jsr UpdateScoreLine                                                                                                                                                                                   
+		jsr UpdateScoreLine  
+                  
+                
 		ldy #3                                                                                                                                                                                                
 nxtScanLine:                                                                                                                                                                                                          
 		lda TempP0                                                                                                                                                                                            
@@ -274,45 +321,92 @@ nxtScanLine:
 		lda GradientColorBK,x		                                                                                                                                                                      
 		sta COLUBK                                                                                                                                                                                            
                                                                                                                                                                                                                       
-		SLEEP #26                                                                                                                                                                                             
+		SLEEP #26                                                                                                                                                                                            
                                                                                                                                                                                                                       
-		lda TempP1                                                                                                                                                                                            
+		lda TempP1 
 		sta PF1                                                                                                                                                                                               
                                                                                                                                                                                                                       
 		dey                                                                                                                                                                                                   
 		bne nxtScanLine                                                                                                                                                                                       
                                                                                                                                                                                                                       
-		SLEEP #8                                                                                                                                                                                              
+		SLEEP #20                                                                                                                                                                                             
                                                                                                                                                                                                                       
 		dex                                                                                                                                                                                                   
 		bpl nxtDigitLine                                                                                                                                                                                      
-		sta WSYNC                                                                                                                                                                                             
-                                                                                                                                                                                                                      
-		;end of digits panel                                                                                                                                                                                  
-		lda #%00000000; clear score mode                                                                                                                                                                      
-		sta CTRLPF; -> CTRLPF                                                                                                                                                                                 
-                                                                                                                                                                                                                      
-		lda #0                                                                                                                                                                                                
+		;sta WSYNC    
+                ;end of digits panel     
+                
+                ;sta WSYNC  
+                ;-----------------
+                lda #0                                                                                                                                                                                                
 		sta PF0                                                                                                                                                                                               
-		sta PF1                                                                                                                                                                                               
-		sta GRP0                                                                                                                                                                                              
-		sta GRP1                                                                                                                                                                                              
-		sta WSYNC	; add extra line to keep simetry with the top	                                                                                                                                      
-		sta WSYNC                                                                                                                                                                                             
+		sta PF1
+                sta PF2   
+		                                                                                                                                                                             
+
+                
+		;Power us
+                ;sta WSYNC                                                                                                                                                                                             
+                
+                lda PowerUps
+                and #$E0 
+                lda #7
+                sta TempP0
+                
+                lda PowerUps
+                asl
+                asl
+                asl
+                asl
+                
+                and #$E0 
+                lda #$FF
+                lda #7
+                sta TempP1
+                
+                ldx 4
+LoopPW:                
+                ;sta WSYNC
+		lda TempP0
+                sta PF2
+                
+                ;SLEEP #6
+
+		lda TempP1
+                sta PF2
+
+                dex
+                bne LoopPW
+                ;-----------------                
+		stx PF0                                                                                                                                                                                               
+		stx PF1
+                stx PF2                    
+		;  sta GRP0                                                                                                                                                                                              
+		;sta GRP1                                                                                                                                                                                              
+		;sta WSYNC	; add extra line to keep simetry with the top	                                                                                                                                      
+		;sta WSYNC                                                                                                                                                                                             
                                                                                                                                                                                                                       
-		ldx #5                                                                                                                                                                                                
-		lda GradientColorBK,x		                                                                                                                                                                      
-		sta COLUBK                                                                                                                                                                                            
-		sta WSYNC                                                                                                                                                                                             
-		sta WSYNC                                                                                                                                                                                             
+		;ldx #5                                                                                                                                                                                                
+		;lda GradientColorBK,x		                                                                                                                                                                      
+		;sta COLUBK 
+                
+		;sta WSYNC                                                                                                                                                                                             
+		;sta WSYNC                                                                                                                                                                                             
                                                                                                                                                                                                                       
-		lda GameState 
-                and #$F0
-		sta COLUBK                                                                                                                                                                                            
-                                                                                                                                                                                                                      
+		;lda GameState 
+                ;and #$F0
+		;sta COLUBK                                                                                                                                                                                            
+                        
+                      
 		; Wait for timer to finish                                                                                                                                                                            
 		TIMER_WAIT                                                                                                                                                                                            
-                                                                                                                                                                                                                      
+		;lda #0                                                                                                                                                                                                
+
+                ;sta WSYNC 
+                
+		;end of digits panel                                                                                                                                                                                  
+		lda #%00000000; clear score mode                                                                                                                                                                      
+		sta CTRLPF; -> CTRLPF                                                                                                                                                                                                                           
 ;===============================================================================                                                                                                                                      
 ; Overscan                                                                                                                                                                                                            
 ; --------------                                                                                                                                                                                                      
@@ -337,7 +431,8 @@ nxtScanLine:
 ; CHECKING SWITCHES                                                                                                                                                                                                   
 ;===============================================================================                                                                                                                                      
                                                                                                                                                                                                                       
-ProcessSwitches:                                                                                                                                                                                                   
+ProcessSwitches:     
+		
 		;may change the game mode
 		lda #$02
 		and SWCHB
@@ -356,7 +451,7 @@ SwithToTracks:
 		ora #TIE_STATE
 		sta GameState
 		
-		jmp StartGame;OSwait; SkipSwitches                                                                                                                                                                                     
+		jmp StartGame                                                                                                                                                                                    
 SkipSelect:                                                                                                                                                                                                           
 		;if not pressing RESET                                                                                                                                                                                
 		lda SWCHB		; load in the state of the switches                                                                                                                                   
@@ -376,6 +471,7 @@ StartGame:
 		sta VarP0; start from 3                                                                                                                                                                               
 		lda #COUNTDOWN_VALUE                                                                                                                                                                                  
 		sta VarP1; restart timer        
+                
                 
 		jmp OSwait                                                                                                                                                                                            
                                                                                                                                                                                                                       
@@ -400,7 +496,7 @@ ResetTurn:
                 
         	ldy #sfxCOLLECT     ; select sound effect
         	jsr SFX_TRIGGER     ; and trigger it                    
-                                                                                                                                                                                                                      
+                
 		jmp OSwait                                                                                                                                                                                            
 SkipSwitches:                                                                                                                                                                                                         
                                                                                                                                                                                                                       
@@ -433,34 +529,59 @@ SkipSwitches:
 		ora #TIE_STATE                                                                                                                                                                                        
 		sta GameState                                                                                                                                                                                         
 SkipTie:                                                                                                                                                                                                              
-                                                                                                                                                                                                                      
-		;load the Game Status	                                                                                                                                                                              
-		lda GameState                                                                                                                                                                                         
-		and #$0F	; to ignore the Game State                                                                                                                                                            
-                                                                                                                                                                                                                      
-		cmp #PAUSE_STATE                                                                                                                                                                                      
-		bne SkipPause                                                                                                                                                                                         
+                                                                                                                                                         
                                                                                                                                                                                                                       
 		;---- CONTINUE WHEN BUTTON IS PRESSED                                                                                                                                                                 
-		bit INPT4                                                                                                                                                                                             
-		bmi SkipPause0                                                                                                                                                                                        
-		jmp ButtonPressed                                                                                                                                                                                     
-SkipPause0:                                                                                                                                                                                                           
+		bit INPT4   
+		bmi SkipButtonP0        
+                ;P0 is pressing the button
+                lda #PS_P0_POWR
+                ora PlayerState
+                sta PlayerState
+                ;flag a button press
+                lda #1
+                sta TempP0
+                
+SkipButtonP0:                                                                                                                                                                                                           
 		bit INPT5                                                                                                                                                                                             
-		bmi SkipPause                                                                                                                                                                                         
-ButtonPressed:	
-
+		bmi SkipButtonP1  
+                ;P1 is pressing the button
+                lda #PS_P1_POWR
+                ora PlayerState
+                sta PlayerState       
+                
+                ;flag a button press
+                lda #1
+                sta TempP0
+SkipButtonP1: 
+		;load the Game Status	                                                                                                                                                                              
+		lda GameState                                                                                                                                                                                         
+		and #$0F	; to ignore the Game State   
+                
+                ;load Game State
+		cmp #PAUSE_STATE                                                                                                                                                                                      
+		bne SkipButtons
+                
+		;any button pressed?
+          	ldy TempP0
+                cpy #1
+                bne SkipButtons                
+                
+                ;will force a restart
 		lda #RESET_STATE
                 and #$0F
-SkipPause:                                                                                                                                                                                                            
-                                                                                                                                                                                                                      
+SkipButtons:      
+         
 		;if in start mode                                                                                                                                                                                     
 		cmp #RESET_STATE                                                                                                                                                                                      
 		beq ResetTurn                                                                                                                                                                                         
                                                                                                                                                                                                                       
 		;restart the game                                                                                                                                                                                     
-		cmp #START_STATE                                                                                                                                                                                      
-		beq StartGame                                                                                                                                                                                         
+		cmp #START_STATE      
+		bne SkipStartGame
+                jmp StartGame 
+                
+SkipStartGame:                                                                                                                                                                                   
                                                                                                                                                                                                                       
 		;Checking for Tie                                                                                                                                                                                     
 		cmp #TIE_STATE                                                                                                                                                                                        
@@ -611,16 +732,15 @@ SkipUpdates:
 ; Restaring game loop                                                                                                                                                                                                 
 ;===============================================================================                                                                                                                                      
 OSwait:                                                                                                                                                                                                               
-                                                                                                                                                                                                                      
                 
 		;Clear collision detection for this frame                                                                                                                                                             
 		sta CXCLR                                                                                                                                                                                             
 		;------------------------                                                                                                                                                                             
                                                                                                                                                                                                                       
-		sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)                                                                                                                                         
+		;sta WSYNC   ; Wait for SYNC (halts CPU until end of scanline)                                                                                                                                         
 		lda INTIM   ; Check the timer                                                                                                                                                                         
 		bne OSwait  ; Branch if its Not Equal to 0                                                                                                                                                            
-                               
+                            
 		jmp Main            ; JuMP to Main                                                                                                                                                                    
                                                                                                                                                                                                                       
 ;===============================================================================                                                                                                                                      
@@ -643,7 +763,7 @@ DrawGrid subroutine
 		sta TempP1                                                                                                                                                                                            
                                                                                                                                                                                                                       
 		ldy #MaxRows	; start                                                                                                                                                                               
-		SLEEP #18	; TRICK TO WAIT FOR THE RIGHT TIME                                                                                                                                                    
+		;SLEEP #18	; TRICK TO WAIT FOR THE RIGHT TIME                                                                                                                                                    
 PatternChanged:                                                                                                                                                                                                       
 		lda #$F0                                                                                                                                                                                              
 		cpy TempP1                                                                                                                                                                                            
@@ -767,8 +887,13 @@ UpdateScoreLine subroutine
 		adc TempP1                                                                                                                                                                                            
                                                                                                                                                                                                                       
 		tay                                                                                                                                                                                                   
-		lda DigitsBitmap,y                                                                                                                                                                                    
-		and #$0F                                                                                                                                                                                              
+		lda DigitsBitmap,y
+                ;reach the second half of the mirrored byte
+		lsr                                                                                                                                                                                                   
+		lsr                                                                                                                                                                                                   
+		lsr                                                                                                                                                                                                   
+		lsr    
+                ;and #$0F                                                                                                                                                                           
 		sta TempP1                                                                                                                                                                                            
                                                                                                                                                                                                                       
 		rts                                                                                                                                                                                                   
@@ -950,8 +1075,35 @@ TryCollP1:
 		jmp CollP0                                                                                                                                                                                            
 SkipCollP1:                                                                                                                                                                                                           
 		rts                                                                                                                                                                                                   
-                                                                                                                                                                                                                      
-CollP0: 	                                                                                                                                                                                                      
+                        
+CollP0: 	
+		;check for the poweup       
+		lda PlayerState
+                and #PS_P0_POWR
+                cmp #PS_P0_POWR
+                bne SkipPowerUpP0
+                lda #$00
+                ora PlayerState
+                sta PlayerState
+                
+                ;decrease power up
+                lda PowerUps
+                and #$F0
+                lsr
+                lsr
+                lsr
+                lsr
+                sbc #1
+                tay
+                asl
+                asl
+                asl
+                asl
+                ora PowerUps
+                sta PowerUps
+                cpy #0
+                ;bne DoNothing
+SkipPowerUpP0:                
 		; updating Score                                                                                                                                                                                      
 		lda Scores                                                                                                                                                                                            
 		and #$0F                                                                                                                                                                                              
@@ -981,11 +1133,22 @@ SkipP0Inc:
                                                                                                                                                                                                                       
 		lda GameState                                                                                                                                                                                              
 		and #$F0                                      
+                
 		;flag to reset the turn                                                                                                                                                                               
 		ora #PAUSE_STATE                                                                                                                                                                                 
-		sta GameState                                                                                                                                                                                         
+		sta GameState     
+                ;set player flag
+		lda #PS_P0_TURN   
+                ora PlayerState
+                sta PlayerState
 		rts                                                                                                                                                                                                   
-CollP1:                                                                                                                                                                                                               
+CollP1:           
+		;check for the poweup       
+                lda PlayerState
+                and #PS_P1_POWR
+                cmp #PS_P1_POWR
+                beq SkipCollP1
+                
 		; updating Score                                                                                                                                                                                      
 		lda Scores                                                                                                                                                                                            
 		lsr                                                                                                                                                                                                   
@@ -1024,10 +1187,14 @@ SkipP1Inc:
                                   
                                   
 		lda GameState                                                                                                                                                                                              
-		and #$F0                                      
+		and #$F0                           
 		;flag to reset the turn                                                                                                                                                                               
 		ora #PAUSE_STATE                                                                                                                                             
-		sta GameState                                                                                                                                                                                         
+		sta GameState  
+                ;set player flag
+		lda #PS_P1_TURN   
+                ora PlayerState
+                sta PlayerState                
 DoNothing:                                                                                                                                                                                                            
 		rts                                                                                                                                                                                                   
                                                                                                                                                                                                                       
@@ -1219,7 +1386,7 @@ SkipMoveUp
 		bit TempP0                                                                                                                                                                                            
                                                                                                                                                                                                                       
 		beq SkipMoveDown                                                                                                                                                                                      
-		cpx #72                                                                                                                                                                                               
+		cpx #68                                                                                                                                                                                               
 		bcs SkipMoveDown                                                                                                                                                                                      
 		inx                                                                                                                                                                                                   
 		inx                                                                                                                                                                                                   
@@ -1257,26 +1424,6 @@ SkipMoveLeft
 SkipMoveRight	                                                                                                                                                                                                      
 		rts                                                                                                                                                                                                   
                                                                                                                                                                                                                       
-;===============================================================================                                                                                                                                      
-; I.A Player 2                                                                                                                                                                                                        
-; --------------                                                                                                                                                                                                      
-;                                                                                                                                                                                                                     
-;===============================================================================                                                                                                                                      
-;UpdateIAPlayer	subroutine                                                                                                                                                                                            
-;	lda VarP0                                                                                                                                                                                                     
-;        inc VarP0                                                                                                                                                                                                    
-;        ;and $0F                                                                                                                                                                                                     
-;        ;lsr                                                                                                                                                                                                         
-;        ;lsr                                                                                                                                                                                                         
-;        ;lsr                                                                                                                                                                                                         
-;                                                                                                                                                                                                                     
-;        tay                                                                                                                                                                                                          
-;	lda RandomDirP1,y                                                                                                                                                                                             
-;        and $0F                                                                                                                                                                                                      
-;        ora Controls                                                                                                                                                                                                 
-;        sta Controls                                                                                                                                                                                                 
-;        rts                                                                                                                                                                                                          
-                                                                                                                                                                                                                      
 CRTP0UP		.byte #%00010000                                                                                                                                                                                      
 CRTP1UP		.byte #%00000001                                                                                                                                                                                      
                                                                                                                                                                                                                       
@@ -1302,18 +1449,18 @@ BitReprF1	.byte #%10000000,#%01000000,#%00100000,#%00010000,#%00001000,#%0000010
 BitReprF2	.byte #%00000001,#%00000010,#%00000100,#%00001000,#%00010000,#%00100000,#%01000000,#%10000000                                                                                                         
                                                                                                                                                                                                                       
 ; Bitmap pattern for digits                                                                                                                                                                                           
-DigitsBitmap                                                                                                                                                                                                          
-                                                                                                                                                                                                                      
+DigitsBitmap                                                                                                                                                                                                         
+                
 		.byte $EE,$AA,$AA,$AA,$EE;0                                                                                                                                                                           
 		.byte $22,$22,$22,$22,$22;1                                                                                                                                                                           
-		.byte $EE,$88,$EE,$22,$EE;2                                                                                                                                                                           
-		.byte $EE,$22,$66,$22,$EE;3                                                                                                                                                                           
-		.byte $22,$22,$EE,$AA,$AA;4                                                                                                                                                                           
-		.byte $EE,$22,$EE,$88,$EE;5                                                                                                                                                                           
-		.byte $EE,$AA,$EE,$88,$EE;6                                                                                                                                                                           
-		.byte $22,$22,$22,$22,$EE;7                                                                                                                                                                           
+		.byte $EE,$28,$EE,$82,$EE;2                                                                                                                                                                           
+		.byte $EE,$82,$C6,$82,$EE;3                                                                                                                                                                           
+                .byte $82,$82,$EE,$AA,$AA;4                                                                                                                                                                           
+		.byte $EE,$82,$EE,$28,$EE;5                                                                                                                                                                           
+		.byte $EE,$AA,$EE,$28,$EE;6                                                                                                                                                                           
+		.byte $82,$82,$82,$82,$EE;7                                                                                                                                                                           
 		.byte $EE,$AA,$EE,$AA,$EE;8                                                                                                                                                                           
-		.byte $EE,$22,$EE,$AA,$EE;9                                                                                                                                                                           
+		.byte $EE,$82,$EE,$AA,$EE;9                                                                                                                                                                           
                                                                                                                                                                                                                       
 GradientColorBK                                                                                                                                                                                                       
 		.byte #$64                                                                                                                                                                                            
@@ -1398,25 +1545,7 @@ Countdown  ;PF2  PF0
 		.byte #$80,#$00                                                                                                                                                                                       
 		.byte #$00,#$10                                                                                                                                                                                       
 		.byte #$C0,#$10                                                                                                                                                                                       
-                                                                                                                                                                                                                      
-RandomDirP1                                                                                                                                                                                                           
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
-		.byte #%00000001;UP                                                                                                                                                                                   
-		.byte #%00001000;RIGHT                                                                                                                                                                                
-		.byte #%00000010;DOWN                                                                                                                                                                                 
-		.byte #%00000100;LEFT                                                                                                                                                                                 
+                                                                                                                                                                         
                 
 ;===============================================================================                                                                                                                                      
 ; free space check before End of Cartridge                                                                                                                                                                            
@@ -1513,31 +1642,31 @@ SFX_OFF subroutine
          rts
 
 SFX_TRIGGER subroutine
-         ldx PF0_left       ; test left channel
+         ldx SndP0       ; test left channel
          lda SFX_CV,x        ; CV value will be 0 if channel is idle 
          bne .leftnotfree   ; if not 0 then skip ahead
-         sty PF0_left       ; channel is idle, use it
+         sty SndP0       ; channel is idle, use it
          rts                ; all done
 .leftnotfree: 
-         ldx PF0_right      ; test right channel
+         ldx SndP1      ; test right channel
          lda SFX_CV,x        ; CV value will be 0 if channel is idle
          bne .rightnotfree  ; if not 0 then skip ahead
-         sty PF0_right      ; channel is idle, use it
+         sty SndP1      ; channel is idle, use it
          rts                ; all done
 .rightnotfree:
-         cpy PF0_left       ; test sfx priority with left channel
+         cpy SndP0       ; test sfx priority with left channel
          bcc .leftnotlower  ; skip ahead if new sfx has lower priority than active sfx
-         sty PF0_left       ; new sfx has higher priority so use left channel
+         sty SndP0       ; new sfx has higher priority so use left channel
          rts                ; all done
 .leftnotlower: 
-         cpy PF0_right      ; test sfx with right channel
+         cpy SndP1      ; test sfx with right channel
          bcc .rightnotlower ; skip ahead if new sfx has lower priority than active sfx
-         sty PF0_right      ; new sfx has higher priority so use right channel
+         sty SndP1      ; new sfx has higher priority so use right channel
 .rightnotlower:
         rts
  
 SFX_UPDATE subroutine
-         ldx PF0_left       ; get the pointer for the left channel
+         ldx SndP0       ; get the pointer for the left channel
          lda SFX_F,x         ; get the Frequency value
          sta AUDF0          ; update the Frequency register
          lda SFX_CV,x        ; get the combined Control and Volume value
@@ -1548,9 +1677,9 @@ SFX_UPDATE subroutine
          lsr                ;   when Control is updated
          sta AUDC0          ; update the Control register
          beq .skipleftdec   ; skip ahead if Control = 0
-         dec PF0_left       ; update pointer for left channel
+         dec SndP0       ; update pointer for left channel
 .skipleftdec: 
-         ldx PF0_right      ; get the pointer for the right channel
+         ldx SndP1      ; get the pointer for the right channel
          lda SFX_F,x         ; get the Frequency value
          sta AUDF1          ; update the Frequency register
          lda SFX_CV,x        ; get the combined Control and Volume value
@@ -1561,7 +1690,7 @@ SFX_UPDATE subroutine
          lsr                ;   when Control is updated
          sta AUDC1          ; update the Control register
          beq .skiprightdec  ; skip ahead if Control = 0
-         dec PF0_right      ; update pointer for right channel
+         dec SndP1      ; update pointer for right channel
 .skiprightdec:
          rts                ; all done
  
