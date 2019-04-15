@@ -63,8 +63,8 @@ TXT_PLAYER0		equ 72
 TXT_PLAYER1		equ 144                                                                                                                                                                                       
 ROW_SHIFT1		equ 3                                                                                                                                                                                         
 ROW_SHIFT2		equ 6                                                                                                                                                                                         
-DOTS_MODE		equ 2                                                                                                                                                                                         
-TRACK_MODE		equ 1                                                                                                                                                                                         
+;DOTS_MODE		equ 2                                                                                                                                                                                         
+;TRACK_MODE		equ 1                                                                                                                                                                                         
                                                                                                                                                                                                                       
 ;===============================================================================                                                                                                                                      
 ; Define RAM Usage                                                                                                                                                                                                    
@@ -427,7 +427,7 @@ ProcessSwitches:
 
 		;change the game mode
                 lda GameState
-                and #$F0
+                ;and #$F0
                 cmp #$00
                 bne SwithToDots
 		lda #$FF
@@ -449,9 +449,9 @@ StartGame:
 		jsr ResetGame		; prepare game state                                                                                                                                                          
 		jsr ResetPositions	; reset the grid                                                                                                                                                              
                                                                                                                                                                                                                       
-		lda GameState                                                                                                                                                                                              
-		and #$F0                                                                                                                                                                                          
-		ora #COUNTDOWN_STATE	; change state to countdown                                                                                                                                                   
+		;lda GameState                                                                                                                                                                                              
+		;and #$F0                                                                                                                                                                                          
+		lda #COUNTDOWN_STATE	; change state to countdown                                                                                                                                                   
 		sta GameState                                                                                                                                                                                         
                                                                                                                                                                                                                       
 		lda #20			; set initial countdown to 3                                                                                                                                                  
@@ -476,9 +476,9 @@ ResetTurn:
                                                                                                                                                                                                                       
 		sta Controls                                                                                                                                                                                          
 		                                                                                                                                                                                                      
-		lda GameState                                                                                                                                                                                              
-		and #$F0                                                                                                                                                                                            
-		ora #NORMAL_STATE                                                                                                                                                                                    
+		; lda GameState                                                                                                                                                                                              
+		;and #$F0                                                                                                                                                                                            
+		lda #NORMAL_STATE                                                                                                                                                                                    
 		sta GameState       
                 
         	ldy #sfxCOLLECT     ; select sound effect
@@ -511,9 +511,9 @@ SkipSwitches:
 		bne SkipTie                                                                                                                                                                                           
                                                                                                                                                                                                                       
 		;set the Game state to TIE                                                                                                                                                                            
-		lda GameState                                                                                                                                                                                              
-		and #$F0                                                                                                                                                                                          
-		ora #TIE_STATE                                                                                                                                                                                        
+		;lda GameState                                                                                                                                                                                              
+		;and #$F0                                                                                                                                                                                          
+		lda #TIE_STATE                                                                                                                                                                                        
 		sta GameState                                                                                                                                                                                         
 SkipTie:                                                                                                                                                                                                              
                                                                                                                                                          
@@ -543,7 +543,7 @@ SkipButtonP0:
 SkipButtonP1: 
 		;load the Game Status	                                                                                                                                                                              
 		lda GameState                                                                                                                                                                                         
-		and #$0F	; to ignore the Game State   
+		;and #$0F	; to ignore the Game State   
                 
                 ;load Game State
 		cmp #PAUSE_STATE                                                                                                                                                                                      
@@ -556,7 +556,7 @@ SkipButtonP1:
                 
                 ;will force a restart
 		lda #RESET_STATE
-                and #$0F
+                ;and #$0F
 SkipButtons:      
          
 		;if in start mode                                                                                                                                                                                     
@@ -642,64 +642,29 @@ SkipPauseBlink:
 		jsr CheckCollision                                                                                                                                                                                    
                                                                                                                                                                                                                       
 		lda GameState                                                                                                                                                                                         
-		and #$0F                                                                                                                                                                                              
+		;and #$0F                                                                                                                                                                                              
 		cmp #PAUSE_STATE                                                                                                                                                                                      
 		beq SkipUpdates                                                                                                                                                                                       
-                                                                                                                                                                                                                      
-		;if no changed direction, skip UpdateGrid in case it is mode = 2                                                                                                                                      
-		lda Controls                                                                                                                                                                                          
-		;and $0F                                                                                                                                                                                              
-		sta VarP0                                                                                                                                                                                             
-                                                                                                                                                                                                                      
-		;update joystick directions                                                                                                                                                                           
+                                                                                                                                                                                    
+		;update joystick directions P0                                                                                                                                                                          
 		ldy PARP0                                                                                                                                                                                             
 		jsr UpdateJoystickStatus                                                                                                                                                                              
-                                                                                                                                                                                                                      
-		;test the game mode                                                                                                                                                                                   
-		lda GameState
-                and #$F0
-		cmp #$00                                                                                                                                                                                 
-		beq SkipDot0                                                                                                                                                                                          
-                                                                                                                                                                                                                      
-		;compare after change                                                                                                                                                                                 
-		lda Controls                                                                                                                                                                                          
-		cmp VarP0                                                                                                                                                                                             
-		beq SkipUpdateGridP0                                                                                                                                                                                  
-                                                                                                                                                                                                                      
-SkipDot0:                                                                                                                                                                                                             
+                                                                                                                                                                                                       
 		;update the grid                                                                                                                                                                                      
 		ldy Player0Y                                                                                                                                                                                          
 		ldx Player0X                                                                                                                                                                                          
 		jsr UpdateGrid                                                                                                                                                                                        
-                                                                                                                                                                                                                      
-SkipUpdateGridP0:                                                                                                                                                                                                     
-                                                                                                                                                                                                                      
-		;if no changed direction, skip UpdateGrid in case it is mode = 2                                                                                                                                      
-		lda Controls                                                                                                                                                                                          
-		sta VarP0                                                                                                                                                                                             
-                                                                                                                                                                                                                      
+                                                                                                                                                          
+                ;update joystick directions P1                                                                                                                                                                                                      
 		ldy PARP1                                                                                                                                                                                             
 		jsr UpdateJoystickStatus                                                                                                                                                                              
                                                                                                                                                                                                                       
-		;test the game mode                                                                                                                                                                                   
-		lda GameState
-                and #$F0
-		cmp #$00                                                                                                                                                                                
-		beq SkipDot1                                                                                                                                                                                          
-                                                                                                                                                                                                                      
-		;compare after change                                                                                                                                                                                 
-		lda Controls                                                                                                                                                                                          
-		cmp VarP0                                                                                                                                                                                             
-		beq SkipUpdateGridP1                                                                                                                                                                                  
-                                                                                                                                                                                                                      
-SkipDot1:                                                                                                                                                                                                             
+                                                                                                                                                                                                      
 		;if changed direction                                                                                                                                                                                 
 		ldy Player1Y                                                                                                                                                                                          
 		ldx Player1X                                                                                                                                                                                          
 		jsr UpdateGrid                                                                                                                                                                                        
-                                                                                                                                                                                                                      
-SkipUpdateGridP1:                                                                                                                                                                                                     
-                                                                                                                                                                                                                      
+                                                                                                                                                                                               
 		;update movement                                                                                                                                                                                      
 		ldy PARP0                                                                                                                                                                                             
 		jsr MovePlayerAround                                                                                                                                                                                  
@@ -1002,9 +967,9 @@ DecCountdown:
 		sta VarP1	; restart timer                                                                                                                                                                       
 		rts                                                                                                                                                                                                   
 SkipCountStatus:          
-		lda GameState
-                and #$F0
-		ora #RESET_STATE                                                                                                                                                                                      
+		;lda GameState
+                ;and #$F0
+		lda #RESET_STATE                                                                                                                                                                                      
 		sta GameState                                                                                                                                                                                         
 		rts                                                                                                                                                                                                   
 ;===============================================================================                                                                                                                                      
@@ -1106,23 +1071,23 @@ SkipPowerUpP0:
 		bne SkipP0Inc                                                                                                                                                                                         
                                            
                                            
-		lda GameState                                                                                                                                                                                              
-		and #$F0                                               
+		;lda GameState                                                                                                                                                                                              
+		;and #$F0                                               
 		;flag to reset the turn                                                                                                                                                                               
-		ora #P0WINS_STATE                                                                                                                                                                                     
+		lda #P0WINS_STATE                                                                                                                                                                                     
 		sta GameState                                                                                                                                                                                         
 		rts                                                                                                                                                                                                   
 SkipP0Inc: 	                                                                                                                                                                                                      
 		lda GameState                                                                                                                                                                                         
-		and #$0F                                                                                                                                                                                              
+		;and #$0F                                                                                                                                                                                              
 		cmp #P1WINS_STATE                                                                                                                                                                             
 		beq DoNothing	                                                                                                                                                                                      
                                                                                                                                                                                                                       
-		lda GameState                                                                                                                                                                                              
-		and #$F0                                      
+		;lda GameState                                                                                                                                                                                              
+		;and #$F0                                      
                 
 		;flag to reset the turn                                                                                                                                                                               
-		ora #PAUSE_STATE                                                                                                                                                                                 
+		lda #PAUSE_STATE                                                                                                                                                                                 
 		sta GameState     
                 ;set player flag
 		lda #PS_P0_TURN   
@@ -1168,15 +1133,15 @@ CollP1:
 		rts                                                                                                                                                                                                   
 SkipP1Inc:                                                                                                                                                                                                            
 		lda GameState                                                                                                                                                                                         
-		and #$0F                                                                                                                                                                                              
+		;and #$0F                                                                                                                                                                                              
 		cmp #P0WINS_STATE;#RESET_STATE                                                                                                                                                                        
 		beq DoNothing                                                                                                                                                                                         
                                   
                                   
-		lda GameState                                                                                                                                                                                              
-		and #$F0                           
+		;lda GameState                                                                                                                                                                                              
+		;and #$F0                           
 		;flag to reset the turn                                                                                                                                                                               
-		ora #PAUSE_STATE                                                                                                                                             
+		lda #PAUSE_STATE                                                                                                                                             
 		sta GameState  
                 ;set player flag
 		lda #PS_P1_TURN   
