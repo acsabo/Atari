@@ -139,7 +139,7 @@ ResetGame subroutine
                 sta PlayerState
                 
                 ;store powerups for each player
-                lda #%00110011
+                lda #%00010111
                 sta PowerUps
                                                                                                                                                                                                                       
 		rts                                                                                                                                                                                                   
@@ -257,7 +257,8 @@ Kernel
 		; Set up timer (in case of bugs where we don't hit exactly)                                                                                                                                           
 		TIMER_SETUP 192                                                                                                                                                                                       
 		SLEEP 2;10 ; to make timing analysis work out                                                                                                                                                         
-                                                                                                                                                                                                                      
+                
+                
 		jsr DrawGrid                                                                                                                                                                                          
                                
 		                               
@@ -319,17 +320,40 @@ nxtScanLine:
 		sta PF1                                                                                                                                                                                               
                                                                                                                                                                                                                       
 		lda GradientColorBK,x		                                                                                                                                                                      
-		sta COLUBK                                                                                                                                                                                            
-                                                                                                                                                                                                                      
-		SLEEP #26                                                                                                                                                                                            
-                                                                                                                                                                                                                      
+		sta COLUBK       
+                
+                ;may print power counters
+		cpx #0
+                bne SkeepPWShowP0                                                                                                                                                                                          
+                
+                lda PowerUps
+                and #$07
+                sta PF2
+                
+                SLEEP #8
+                
+                lda PowerUps
+                lsr
+                lsr
+                lsr
+                lsr
+                sta PF2  
+                 
+                jmp SkipDelpayP0 
+SkeepPWShowP0:                                                                                                                                                                                                                       
+		SLEEP #15                                                                                                                                                                                             
+SkipDelpayP0:       
+		;SLEEP #5
 		lda TempP1 
 		sta PF1                                                                                                                                                                                               
-                                                                                                                                                                                                                      
+
+
+		SLEEP #2
 		dey                                                                                                                                                                                                   
 		bne nxtScanLine                                                                                                                                                                                       
-                                                                                                                                                                                                                      
-		SLEEP #20                                                                                                                                                                                             
+                
+		SLEEP #10 
+              	sty PF2
                                                                                                                                                                                                                       
 		dex                                                                                                                                                                                                   
 		bpl nxtDigitLine                                                                                                                                                                                      
@@ -343,44 +367,7 @@ nxtScanLine:
 		sta PF1
                 sta PF2   
 		                                                                                                                                                                             
-
                 
-		;Power us
-                ;sta WSYNC                                                                                                                                                                                             
-                
-                lda PowerUps
-                and #$E0 
-                lda #7
-                sta TempP0
-                
-                lda PowerUps
-                asl
-                asl
-                asl
-                asl
-                
-                and #$E0 
-                lda #$FF
-                lda #7
-                sta TempP1
-                
-                ldx 4
-LoopPW:                
-                ;sta WSYNC
-		lda TempP0
-                sta PF2
-                
-                ;SLEEP #6
-
-		lda TempP1
-                sta PF2
-
-                dex
-                bne LoopPW
-                ;-----------------                
-		stx PF0                                                                                                                                                                                               
-		stx PF1
-                stx PF2                    
 		;  sta GRP0                                                                                                                                                                                              
 		;sta GRP1                                                                                                                                                                                              
 		;sta WSYNC	; add extra line to keep simetry with the top	                                                                                                                                      
@@ -763,7 +750,7 @@ DrawGrid subroutine
 		sta TempP1                                                                                                                                                                                            
                                                                                                                                                                                                                       
 		ldy #MaxRows	; start                                                                                                                                                                               
-		;SLEEP #18	; TRICK TO WAIT FOR THE RIGHT TIME                                                                                                                                                    
+		SLEEP #14	; TRICK TO WAIT FOR THE RIGHT TIME                                                                                                                                                    
 PatternChanged:                                                                                                                                                                                                       
 		lda #$F0                                                                                                                                                                                              
 		cpy TempP1                                                                                                                                                                                            
