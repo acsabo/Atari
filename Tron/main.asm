@@ -118,7 +118,8 @@ VarP1		.byte
 PlayerState	.byte
 PowerUps	.byte
 SndP0		.byte                                                                                                                                                                                                 
-SndP1		.byte  
+SndP1		.byte
+SndP2		.byte
 
 ;There's no bytes left :) the last one if for the stack pointer                                                                                                                                                       
                                                                                                                                                                                                                       
@@ -708,66 +709,72 @@ DrawGrid subroutine
 		lsr                                                                                                                                                                                                   
 		sta TempP0                                                                                                                                                                                            
                                                                                                                                                                                                                       
-                                                                                                                                                                                                                      
 		lda Player1Y                                                                                                                                                                                          
 		lsr                                                                                                                                                                                                   
 		lsr                                                                                                                                                                                                   
 		sta TempP1                                                                                                                                                                                            
                                                                                                                                                                                                                       
-		ldy #MaxRows	; start                                                                                                                                                                               
-		SLEEP #14	; TRICK TO WAIT FOR THE RIGHT TIME                                                                                                                                                    
-PatternChanged:                                                                                                                                                                                                       
-		lda #$F0                                                                                                                                                                                              
+		ldy #MaxRows	; start                              
+		SLEEP #14	; TRICK TO WAIT FOR THE RIGHT TIME   
+                ldx #$00
+PatternChanged:    
+		;---P0 show/hide
+                ;ldx #$00
+		cpy TempP0                                                                                                                                                                                           
+		bne skipP0                                                                                                                                                                                          
+		ldx #$F0
+skipP0:                                                                                                                                                                                                             
+                stx GRP0
+                
+                ;---P1 show/hide
+                ldx #$00
 		cpy TempP1                                                                                                                                                                                            
-		beq doDrawP2                                                                                                                                                                                          
-		lda #0			; no, load the padding offset (0)                                                                                                                                             
-doDrawP2:                                                                                                                                                                                                             
-		tax	; save x for the near future bellow                                                                                                                                                           
-                                                                                                                                                                                                                      
-		lda #$F0                                                                                                                                                                                              
-		cpy TempP0                                                                                                                                                                                            
-		beq doDrawP1                                                                                                                                                                                          
-		lda #0			; no, load the padding offset (0)                                                                                                                                             
-doDrawP1:                                                                                                                                                                                                             
+		bne skipP1                                                                                                                                                                                          
+		ldx #$F0			; no, load the padding offset (0)                                                                                                                                             
+skipP1:                                                                                                                                                                                                             
+		stx GRP1       
+
 		;enable/disable player                                                                                                                                                                                
-		stx GRP1                                                                                                                                                                                              
-		ldx #SpriteHeight                                                                                                                                                                                     
-		sta GRP0                                                                                                                                                                                              
+		ldx #SpriteHeight     
 		jmp SkipLine        ; TO AVOID BLANK LINE                                                                                                                                                             
                                                                                                                                                                                                                       
-RowsHeightLoop                                                                                                                                                                                                        
-                                                                                                                                                                                                                      
+RowsHeightLoop:                 
+		
 		lda GradientColorGrid,x	; guideline on the grid                                                                                                                                                       
 		sta WSYNC                                                                                                                                                                                             
 		sta COLUBK                                                                                                                                                                                            
-SkipLine                                                                                                                                                                                                              
-		lda PF0_left,y                                                                                                                                                                                        
-		sta PF0                                                                                                                                                                                               
-                                                                                                                                                                                                                      
+SkipLine:                                                                                                                                                                                                              
+                lda PF0_left,y
+		sta PF0
+                
 		lda PF1_left,y                                                                                                                                                                                        
-		sta PF1                                                                                                                                                                                               
+		sta PF1
                                                                                                                                                                                                                       
 		lda PF2_left,y                                                                                                                                                                                        
-		sta PF2                                                                                                                                                                                               
-                                                                                                                                                                                                                      
-		SLEEP #4                                                                                                                                                                                              
-                                                                                                                                                                                                                      
-		lda PF0_right,y                                                                                                                                                                                       
+		sta PF2
+                
+                ;-------------
+                
+                lda PF0_left,y
+                asl
+                asl
+                asl
+                asl
 		sta PF0                                                                                                                                                                                               
                                                                                                                                                                                                                       
 		lda PF1_right,y                                                                                                                                                                                       
 		sta PF1                                                                                                                                                                                               
                                                                                                                                                                                                                       
-		lda PF2_right,y                                                                                                                                                                                       
+		lda PF2_right,x                                                                                                                                                                                       
 		sta PF2                                                                                                                                                                                               
-                                                                                                                                                                                                                      
-		dex                                                                                                                                                                                                   
+        
+		dex
 		bne RowsHeightLoop  	; Branch if Not Equal to 0                                                                                                                                                    
-                                                                                                                                                                                                                      
+                
 		dey                                                                                                                                                                                                   
 		bpl PatternChanged	; NEXT LINE OF THE GRID                                                                                                                                                       
                                                                                                                                                                                                                       
-RowsEnd                                                                                                                                                                                                               
+RowsEnd:                                                                                                                                                                                                               
 		sta WSYNC	; NEED TO WAIT FOR THE CURRENT LINE TO COMPLETE                                                                                                                                       
 		lda #0                                                                                                                                                                                                
 		sta GRP0                                                                                                                                                                                              
@@ -1435,18 +1442,18 @@ TextPanel
 		;TextTextGetReady                                                                                                                                                                                     
 		;GET                                                                                                                                                                                                  
 		.byte #$00,#$00,#$00,#$00,#$80,#$00                                                                                                                                                                   
-		.byte #$00,#$00,#$DE,#$B0,#$E0,#$00                                                                                                                                                                   
-		.byte #$00,#$00,#$42,#$20,#$80,#$00                                                                                                                                                                   
-		.byte #$00,#$00,#$DA,#$30,#$80,#$00                                                                                                                                                                   
+		.byte #$0B,#$00,#$DE,#$B0,#$E0,#$00                                                                                                                                                                   
+		.byte #$02,#$00,#$42,#$20,#$80,#$00                                                                                                                                                                   
+		.byte #$03,#$00,#$DA,#$30,#$80,#$00                                                                                                                                                                   
 		.byte #$00,#$00,#$52,#$00,#$80,#$00                                                                                                                                                                   
-		.byte #$00,#$00,#$DE,#$30,#$80,#$00                                                                                                                                                                   
+		.byte #$03,#$00,#$DE,#$30,#$80,#$00                                                                                                                                                                   
 		;READY                                                                                                                                                                                                
 		.byte #$00,#$00,#$00,#$00,#$02,#$00                                                                                                                                                                   
-		.byte #$00,#$03,#$DD,#$D0,#$AA,#$00                                                                                                                                                                   
-		.byte #$00,#$02,#$45,#$50,#$AA,#$00                                                                                                                                                                   
-		.byte #$00,#$03,#$CC,#$50,#$BA,#$00                                                                                                                                                                   
-		.byte #$00,#$02,#$45,#$50,#$90,#$00                                                                                                                                                                   
-		.byte #$00,#$02,#$5D,#$D0,#$12,#$00                                                                                                                                                                   
+		.byte #$0D,#$03,#$DD,#$D0,#$AA,#$00                                                                                                                                                                   
+		.byte #$05,#$02,#$45,#$50,#$AA,#$00                                                                                                                                                                   
+		.byte #$05,#$03,#$CC,#$50,#$BA,#$00                                                                                                                                                                   
+		.byte #$05,#$02,#$45,#$50,#$90,#$00                                                                                                                                                                   
+		.byte #$0D,#$02,#$5D,#$D0,#$12,#$00                                                                                                                                                                   
 		;TextPlayer0Wins                                                                                                                                                                                      
 		;Player 1                                                                                                                                                                                             
 		.byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1                                                                                                                                                          
