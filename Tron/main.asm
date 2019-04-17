@@ -729,12 +729,14 @@ DrawGrid subroutine
 		sta TempP1                                                                                                                                                                                            
                                                                                                                                                                                                                       
 		ldy #MaxRows	; start                              
-		SLEEP #14	; TRICK TO WAIT FOR THE RIGHT TIME   
+		SLEEP #12	; TRICK TO WAIT FOR THE RIGHT TIME   
                 ldx #$00
-                                
+                stx GRP0	; fix top right flicking
+                stx GRP1
+
+
 PatternChanged:    
 		;---P0 show/hide
-                ;ldx #$00
 		lda SndP2
                 cmp #1
                 beq skipP0
@@ -751,7 +753,7 @@ skipP0:
                 ;ldx #$00
 		cpy TempP1                                                                                                                                                                                            
 		bne hideP1                                                                                                                                                                                          
-		ldx #$F0			; no, load the padding offset (0)                                                                                                                                             
+		ldx #$F0                                                                                                                                       
 hideP1:                                                                                                                                                                                                             
 		stx GRP1       
 skipP1:		
@@ -1284,8 +1286,7 @@ pf0_l:
 		tax                                                                                                                                                                                                   
 		lda PF0_left,y                                                                                                                                                                                        
 		ora BitReprF0,x
-                and #$F0
-                lda #$00;removethis
+                ora PF0_left,y
 		sta PF0_left,y		                                                                                                                                                                              
 		rts                                                                                                                                                                                                   
 pf1_l:                                                                                                                                                                                                                
@@ -1315,15 +1316,15 @@ pf0_r:
 		cmp #4                                                                                                                                                                                                
 		bpl pf1_r                                                                                                                                                                                             
 		tax                                                                                                                                                                                                   
-		lda PF0_left,y                                                                                                                                                                                       
+		lda PF0_left,y
+               
 		ora BitReprF0,x
+                
                 lsr
                 lsr
                 lsr
                 lsr
-                and #$0F
-                ora PF0_left,y
-                lda #$00;removethis
+                ora PF0_left,y 
 		sta PF0_left,y		                                                                                                                                                                              
 		rts                                                                                                                                                                                                   
 pf1_r:	                                                                                                                                                                                                              
