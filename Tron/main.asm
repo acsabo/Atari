@@ -30,7 +30,7 @@
                                                                                                                                                                                                                       
 SPEED			equ 12                                                                                                                                                                                      
 SpriteHeight		equ 8                                                                                                                                                                                         
-MaxRows			equ 17                                                                                                                                                                                        
+MaxRows			equ 19                                                                                                                                                                                        
 PARP0			equ 0                                                                                                                                                                                         
 PARP1			equ 1                                                                                                                                                                                         
                                                                                                                                                                                                                       
@@ -52,9 +52,11 @@ PS_P1_POWR		equ %00000100
                                                                                                                                                                                                                       
 NO_WINNER		equ $99 ; tie                                                                                                                                              
 COUNTDOWN_VALUE		equ 60                                                                                                                                                                                        
+
 INIT_Player0X		equ 8                                                                                                                                                                                         
-INIT_Player1X		equ 148                                                                                                                                                                                       
-INIT_PlayerY		equ 36                                                                                                                                                                                        
+INIT_Player1X		equ 148 
+INIT_PlayerY		equ 40                                                                                                                                                                                        
+
 COLOR_Player0		equ 25                                                                                                                                                                                        
 COLOR_Player1		equ 130                                                                                                                                                                                       
 COLOR_Playfield 	equ $44                                                                                                                                                                                       
@@ -79,12 +81,12 @@ ROW_SHIFT2		equ 6
 
 
 ;Defines the grid/matrix to track players movement                                                                                                                                                                    
-PF0_left	ds 18                                                                                                                                                                                                 
-PF1_left	ds 18                                                                                                                                                                                                 
-PF2_left	ds 18                                                                                                                                                                                                 
-PF0_right	ds 18                                                                                                                                                                                                 
-PF1_right	ds 18                                                                                                                                                                                                 
-PF2_right	ds 18                                                                                                                                                                                                 
+PF0_left	ds 20                                                                                                                                                                                                 
+PF1_left	ds 20                                                                                                                                                                                                 
+PF2_left	ds 20                                                                                                                                                                                                 
+;PF0_right	ds 18                                                                                                                                                                                                 
+PF1_right	ds 20                                                                                                                                                                                                 
+PF2_right	ds 20                                                                                                                                                                                                 
                                                                                                                                                                                                                       
 ;Stores players positions (it will reset each frame)                                                                                                                                                                  
 TempP0		.byte                                                                                                                                                                                                 
@@ -149,7 +151,7 @@ ResetPositions subroutine
 		;init grid memory                                                                                                                                                                                     
 		ldy #0                                                                                                                                                                                                
 		lda #$00                                                                                                                                                                                              
-		ldx #114                                                                                                                                                                                              
+		ldx #100;114                                                                                                                                                                                              
                                                                                                                                                                                                                       
 		;Clear collision detection for this frame                                                                                                                                                             
 		sta CXCLR                                                                                                                                                                                             
@@ -261,8 +263,20 @@ Kernel
                 
                 
 		jsr DrawGrid                                                                                                                                                                                          
-                               
-		                               
+                
+                ;---BIG TRICK TO FLICK PLAYERS TO GET ENOUGHT TIME TO DRAW THE GRID
+                ldx #0
+		lda SndP2
+                cmp #1
+                beq changeValue
+                stx SndP2;receive 1
+                ldx #1
+changeValue:
+		;---
+                stx SndP2
+                
+                
+                
 		sta WSYNC                                                                                                                                                                                             
 		; sta WSYNC                                                                                                                                                                                             
 		;sta WSYNC                                                                                                                                                                                             
@@ -717,23 +731,30 @@ DrawGrid subroutine
 		ldy #MaxRows	; start                              
 		SLEEP #14	; TRICK TO WAIT FOR THE RIGHT TIME   
                 ldx #$00
+                                
 PatternChanged:    
 		;---P0 show/hide
                 ;ldx #$00
-		cpy TempP0                                                                                                                                                                                           
-		bne skipP0                                                                                                                                                                                          
-		ldx #$F0
-skipP0:                                                                                                                                                                                                             
-                stx GRP0
+		lda SndP2
+                cmp #1
+                beq skipP0
                 
+		cpy TempP0                                                                                                                                                                                           
+		bne hideP0                                                                                                                                                                                          
+		ldx #$F0
+hideP0:                                                                                                                                                                                                             
+                stx GRP0
+                jmp skipP1
+                
+skipP0:                
                 ;---P1 show/hide
-                ldx #$00
+                ;ldx #$00
 		cpy TempP1                                                                                                                                                                                            
-		bne skipP1                                                                                                                                                                                          
+		bne hideP1                                                                                                                                                                                          
 		ldx #$F0			; no, load the padding offset (0)                                                                                                                                             
-skipP1:                                                                                                                                                                                                             
+hideP1:                                                                                                                                                                                                             
 		stx GRP1       
-
+skipP1:		
 		;enable/disable player                                                                                                                                                                                
 		ldx #SpriteHeight     
 		jmp SkipLine        ; TO AVOID BLANK LINE                                                                                                                                                             
@@ -741,7 +762,8 @@ skipP1:
 RowsHeightLoop:                 
 		
 		lda GradientColorGrid,x	; guideline on the grid                                                                                                                                                       
-		sta WSYNC                                                                                                                                                                                             
+		sta WSYNC
+               
 		sta COLUBK                                                                                                                                                                                            
 SkipLine:                                                                                                                                                                                                              
                 lda PF0_left,y
@@ -763,11 +785,11 @@ SkipLine:
 		sta PF0                                                                                                                                                                                               
                                                                                                                                                                                                                       
 		lda PF1_right,y                                                                                                                                                                                       
-		sta PF1                                                                                                                                                                                               
-                                                                                                                                                                                                                      
-		lda PF2_right,x                                                                                                                                                                                       
+		sta PF1
+                                                                                                                                                                                                                                      
+		lda PF2_right,y                                                                                                                                                                                       
 		sta PF2                                                                                                                                                                                               
-        
+                
 		dex
 		bne RowsHeightLoop  	; Branch if Not Equal to 0                                                                                                                                                    
                 
@@ -867,8 +889,8 @@ DrawText subroutine
 		beq SkipText                                                                                                                                                                                          
 		ldx #12                                                                                                                                                                                               
 doLoop:                                                                                                                                                                                                               
-		; fill left side                                                                                                                                                                                      
-		lda TextPanel,y                                                                                                                                                                                       
+		; fill left side (store PF0 2x)
+		lda TextPanel,y
 		sta PF0_left,x+ROW_SHIFT1                                                                                                                                                                             
 		iny                                                                                                                                                                                                   
                                                                                                                                                                                                                       
@@ -881,9 +903,6 @@ doLoop:
 		iny                                                                                                                                                                                                   
                                                                                                                                                                                                                       
 		; fill right side                                                                                                                                                                                     
-		lda TextPanel,y                                                                                                                                                                                       
-		sta PF0_right,x+ROW_SHIFT1                                                                                                                                                                            
-		iny                                                                                                                                                                                                   
                                                                                                                                                                                                                       
 		lda TextPanel,y                                                                                                                                                                                       
 		sta PF1_right,x+ROW_SHIFT1                                                                                                                                                                            
@@ -945,8 +964,8 @@ doLoop_:
                                                                                                                                                                                                                       
 		; fill right side                                                                                                                                                                                     
 		lda Countdown,y                                                                                                                                                                                       
-		sta PF0_right,x+ROW_SHIFT2                                                                                                                                                                            
-		iny                                                                                                                                                                                                   
+		;sta PF0_left,x+ROW_SHIFT2                                                                                                                                                                            
+		;iny                                                                                                                                                                                                   
                                                                                                                                                                                                                       
 		lda #00                                                                                                                                                                                               
 		sta PF1_right,x+ROW_SHIFT2                                                                                                                                                                            
@@ -1264,7 +1283,9 @@ pf0_l:
 		bpl pf1_l                                                                                                                                                                                             
 		tax                                                                                                                                                                                                   
 		lda PF0_left,y                                                                                                                                                                                        
-		ora BitReprF0,x		                                                                                                                                                                              
+		ora BitReprF0,x
+                and #$F0
+                lda #$00;removethis
 		sta PF0_left,y		                                                                                                                                                                              
 		rts                                                                                                                                                                                                   
 pf1_l:                                                                                                                                                                                                                
@@ -1294,9 +1315,16 @@ pf0_r:
 		cmp #4                                                                                                                                                                                                
 		bpl pf1_r                                                                                                                                                                                             
 		tax                                                                                                                                                                                                   
-		lda PF0_right,y                                                                                                                                                                                       
-		ora BitReprF0,x		                                                                                                                                                                              
-		sta PF0_right,y		                                                                                                                                                                              
+		lda PF0_left,y                                                                                                                                                                                       
+		ora BitReprF0,x
+                lsr
+                lsr
+                lsr
+                lsr
+                and #$0F
+                ora PF0_left,y
+                lda #$00;removethis
+		sta PF0_left,y		                                                                                                                                                                              
 		rts                                                                                                                                                                                                   
 pf1_r:	                                                                                                                                                                                                              
 		cmp #12                                                                                                                                                                                               
@@ -1345,7 +1373,7 @@ SkipMoveUp
 		bit TempP0                                                                                                                                                                                            
                                                                                                                                                                                                                       
 		beq SkipMoveDown                                                                                                                                                                                      
-		cpx #68                                                                                                                                                                                               
+		cpx #76                                                                                                                                                                                               
 		bcs SkipMoveDown                                                                                                                                                                                      
 		inx                                                                                                                                                                                                   
 		inx                                                                                                                                                                                                   
@@ -1441,19 +1469,21 @@ GradientColorGrid
 TextPanel                                                                                                                                                                                                             
 		;TextTextGetReady                                                                                                                                                                                     
 		;GET                                                                                                                                                                                                  
-		.byte #$00,#$00,#$00,#$00,#$80,#$00                                                                                                                                                                   
-		.byte #$0B,#$00,#$DE,#$B0,#$E0,#$00                                                                                                                                                                   
-		.byte #$02,#$00,#$42,#$20,#$80,#$00                                                                                                                                                                   
-		.byte #$03,#$00,#$DA,#$30,#$80,#$00                                                                                                                                                                   
-		.byte #$00,#$00,#$52,#$00,#$80,#$00                                                                                                                                                                   
-		.byte #$03,#$00,#$DE,#$30,#$80,#$00                                                                                                                                                                   
+		.byte #$F1,#$F1,#$F1,#$F1,#$F1
+
+		;.byte #$00,#$00,#$00,#$80,#$00
+		.byte #$0B,#$00,#$DE,#$E0,#$00                                                                                                                                                                   
+		.byte #$02,#$00,#$42,#$80,#$00                                                                                                                                                                   
+		.byte #$03,#$00,#$DA,#$80,#$00                                                                                                                                                                   
+		.byte #$00,#$00,#$52,#$80,#$00                                                                                                                                                                   
+		.byte #$03,#$00,#$DE,#$80,#$00                                                                                                                                                                   
 		;READY                                                                                                                                                                                                
-		.byte #$00,#$00,#$00,#$00,#$02,#$00                                                                                                                                                                   
-		.byte #$0D,#$03,#$DD,#$D0,#$AA,#$00                                                                                                                                                                   
-		.byte #$05,#$02,#$45,#$50,#$AA,#$00                                                                                                                                                                   
-		.byte #$05,#$03,#$CC,#$50,#$BA,#$00                                                                                                                                                                   
-		.byte #$05,#$02,#$45,#$50,#$90,#$00                                                                                                                                                                   
-		.byte #$0D,#$02,#$5D,#$D0,#$12,#$00                                                                                                                                                                   
+		.byte #$00,#$00,#$00,#$02,#$00                                                                                                                                                                   
+		.byte #$0D,#$03,#$DD,#$AA,#$00                                                                                                                                                                   
+		.byte #$05,#$02,#$45,#$AA,#$00                                                                                                                                                                   
+		.byte #$05,#$03,#$CC,#$BA,#$00                                                                                                                                                                   
+		.byte #$05,#$02,#$45,#$90,#$00                                                                                                                                                                   
+		.byte #$0D,#$02,#$5D,#$12,#$00                                                                                                                                                                   
 		;TextPlayer0Wins                                                                                                                                                                                      
 		;Player 1                                                                                                                                                                                             
 		.byte #$00,#$32,#$4C,#$D0,#$B1,#$03; line #1                                                                                                                                                          
@@ -1592,8 +1622,8 @@ SFX_CVcount = *-SFX_CV
 
 SFX_OFF subroutine
          ldx #0             ; silence sound output
-         stx PF0_left
-         stx PF0_right
+         stx SndP0
+         stx SndP1
          stx AUDV0
          stx AUDV1
          stx AUDC0
