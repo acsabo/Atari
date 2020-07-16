@@ -44,7 +44,7 @@ COUNTDOWN_VALUE		equ 60
 INIT_Player0X		equ 8
 INIT_Player1X		equ 148
 INIT_PlayerY		equ 40
-COLOR_Player0		equ 25
+COLOR_Player0		equ 65;25
 COLOR_Player1		equ 130
 COLOR_Playfield 	equ $44
 TXT_GETREAD			equ 0
@@ -52,8 +52,7 @@ TXT_PLAYER0			equ 60
 TXT_PLAYER1			equ 120
 ROW_SHIFT1			equ 3
 ROW_SHIFT2			equ 7
-;DOTS_MODE			equ 2
-;TRACK_MODE			equ 1
+
 ;===============================================================================
 ; Define RAM Usage
 ;===============================================================================
@@ -83,7 +82,7 @@ Scores			.byte
 ;Keep the last changed direction of the controllers for both players
 Controls		.byte
 ;Used to control speed and other flags
-SpeedCounter	.byte
+SpeedCounter		.byte
 ;Game status Control
 GameState		.byte
 ;Used to control the countdown and text blink
@@ -95,6 +94,8 @@ PowerUps		.byte
 SndP0			.byte
 SndP1			.byte
 SndP2			.byte
+
+
 ;There's no bytes left :) the last one if for the stack pointer
 ;===============================================================================
 ; Define Start of Cartridge
@@ -103,20 +104,23 @@ SndP2			.byte
 	SEG CODE
 	; 2K ROM starts at $F800, 4K ROM starts at $F000
 	ORG $F800
+        
 ResetGame subroutine
 		;init Score
 		lda #$00
 		sta Scores
 		sta PlayerState
 		;store powerups for each player
-		lda #%00010111
+		lda #%00010001
 		sta PowerUps
 		rts
+                
 ResetPositions subroutine
 		;init grid memory
 		ldy #0
 		lda #$00
-		ldx #100;114
+		ldx #100	;20 lines x 5 bytes 
+                
 		;Clear collision detection for this frame
 		sta CXCLR
 		;resets each grid cells
@@ -139,7 +143,7 @@ initGrid:
 		sty SpeedCounter
 		;reset status
 		lda #00
- sta PlayerState
+ 		sta PlayerState
 		;player color
 		lda #COLOR_Player0
 		sta COLUP0
@@ -182,8 +186,20 @@ Main:
 ; --------------
 ; game logic runs here. Coming soon!
 ;===============================================================================
+		;---BIG TRICK TO FLICK PLAYERS TO GET ENOUGHT TIME TO DRAW THE GRID
+		ldx #PARP1;#0
+		lda SndP2
+		cmp #PARP0;#1
+		beq switchPlayer
+		stx SndP2;receive 1
+		ldx #PARP0;#1
+switchPlayer:
+		stx SndP2
+                ;---
+                
 		;MORE CODE CAN COME IN HERE!!!
-		jsr SFX_UPDATE
+		;jsr SFX_UPDATE	; !!!!!!!!!!!!!! ENABLE SOUND
+                
 		;line delimiter before grid
 		lda #$68
 		sta COLUBK
@@ -202,32 +218,17 @@ Kernel
 		sta VBLANK ; Accumulator D1=0, turns off Vertical Blank signal (image output on)
 		; Set up timer (in case of bugs where we don't hit exactly)
 		TIMER_SETUP 192
-		SLEEP 2;10 ; to make timing analysis work out
-		jsr DrawGrid
-		;---BIG TRICK TO FLICK PLAYERS TO GET ENOUGHT TIME TO DRAW THE GRID
-		ldx #0
-		lda SndP2
-		cmp #1
-		beq changeValue
-		stx SndP2;receive 1
-		ldx #1
-changeValue:
-		;---
-		stx SndP2
+
+GameMode:
 		sta WSYNC
-		; sta WSYNC
-		;sta WSYNC
-		;sta WSYNC
-		;sta WSYNC
-		;sta WSYNC
- ;sta WSYNC
+		jsr DrawGrid
+		sta WSYNC
+
 ;===============================================================================
 ; Scoreboard
 ;===============================================================================
-		;lda #%00000001; mirror mode
-		;sta CTRLPF; -> CTRLPF
 		ldx #5
-		lda GradientColorBK,x
+		lda ScoreboardColorBK,x
 		sta COLUBK
 		lda #%00000011; score mode
 		sta CTRLPF
@@ -257,7 +258,7 @@ nxtScanLine:
 		lda TempP0
 		sta WSYNC
 		sta PF1
-		lda GradientColorBK,x
+		lda ScoreboardColorBK,x
 		sta COLUBK
 		;may print power counters
 		cpx #0
@@ -286,31 +287,16 @@ SkipDelpayP0:
 		sty PF2
 		dex
 		bpl nxtDigitLine
-		;sta WSYNC
+                
 		;end of digits panel
-		;sta WSYNC
-		;-----------------
 		lda #0
 		sta PF0
 		sta PF1
 		sta PF2
-		;sta GRP0
-		;sta GRP1
-		;sta WSYNC	; add extra line to keep simetry with the top
-		;sta WSYNC
-		;ldx #5
-		;lda GradientColorBK,x
-		;sta COLUBK
-		;sta WSYNC
-		;sta WSYNC
-		;lda GameState
-		;and #$F0
-		;sta COLUBK
+
+BeginOverscan:
 		;Wait for timer to finish
 		TIMER_WAIT
-		;lda #0
-		;sta WSYNC
-		;end of digits panel
 		lda #%00000000; clear score mode
 		sta CTRLPF; -> CTRLPF
 ;===============================================================================
@@ -336,23 +322,23 @@ SkipDelpayP0:
 ;===============================================================================
 ProcessSwitches:
 		;may change the game mode
-		lda #$02
-		and SWCHB
-		bne SkipSelect
+		;lda #$02
+		;and SWCHB
+		;bne SkipSelect
 		;change the game mode
-		lda GameState
+		;lda GameState
 		;and #$F0
-		cmp #$00
-		bne SwithToDots
-		lda #$FF
-		jmp SwithToTracks
-SwithToDots:
-		lda #$00
-SwithToTracks:
-		ora #TIE_STATE
-		sta GameState
-		jmp StartGame
-SkipSelect:
+		;;cmp #$00
+		;bne SwithToDots
+		;lda #$FF
+		;jmp SwithToTracks
+;SwithToDots:
+		;lda #$00
+;SwithToTracks:
+		;ora #TIE_STATE
+		;sta GameState
+		;jmp StartGame
+;SkipSelect:
 		;if not pressing RESET
 		lda SWCHB	; load in the state of the switches
 		lsr		; D0 is now in C
@@ -390,11 +376,13 @@ SkipSwitches:
 		;Set the grid color
 		lda #COLOR_Playfield;#$40
 		sta COLUPF
+                
 		sta HMCLR		; reset the old horizontal position
-		ldx PARP0
+		ldx #PARP0
 		jsr SetHorizPos
-		ldx PARP1
+		ldx #PARP1
 		jsr SetHorizPos
+                
 		sta WSYNC
 		sta HMOVE
 ;===============================================================================
@@ -405,8 +393,6 @@ SkipSwitches:
 		cmp #NO_WINNER
 		bne SkipTie
 		;set the Game state to TIE
-		;lda GameState
-		;and #$F0
 		lda #TIE_STATE
 		sta GameState
 SkipTie:
@@ -443,7 +429,10 @@ SkipButtonP1:
 		bne SkipButtons
 		;will force a restart
 		lda #RESET_STATE
-		;and #$0F
+                
+		;RESET PLAYER SWITHCHING TIME
+                ldx #PARP0
+                stx SndP2                
 SkipButtons:
 		;if in start mode
 		cmp #RESET_STATE
@@ -476,6 +465,8 @@ SkipP0Wins:
 		jsr DrawText
 		jmp OSwait
 SkipP1Wins:
+		jmp SkipCountdown; !!!!!!!! TEST ONLY REMOVE THIS
+                
 		cmp #INITIAL_STATE
 		bne SkipDrawGetReady
 		ldy #TXT_GETREAD
@@ -497,46 +488,51 @@ SkipCountdown:
 		lda VarP0
 		sta COLUPF
 		jmp OSwait
+                
 SkipPauseBlink:
+                
 		;-------------------
 		;MOVE SLOWER, by skeeping some frames
 		ldy SpeedCounter
 		dey
 		sty SpeedCounter
 		bne SkipUpdates
-		;check collisions
-		ldx PARP0
-		jsr CheckCollision
-		ldx PARP1
-		jsr CheckCollision
+
+                ;check collisions                                                                                                                                                                                     
+		ldx #PARP0                                                                                                                                                                                         
+		jsr CheckCollision                                                                                                                                                                                    
+		ldx #PARP1                                                                                                                                                                                             
+		jsr CheckCollision 
+              
 		lda GameState
-		;and #$0F
 		cmp #PAUSE_STATE
 		beq SkipUpdates
-		;update joystick directions P0
-		ldy PARP0
+                                
+                ;update joystick directions P0
+		ldy #PARP0
 		jsr UpdateJoystickStatus
-		;update the grid
 		ldy Player0Y
 		ldx Player0X
 		jsr UpdateGrid
-		;update joystick directions P1
-		ldy PARP1
+		
+                ;update joystick directions P1
+		ldy #PARP1
 		jsr UpdateJoystickStatus
-		;if changed direction
 		ldy Player1Y
 		ldx Player1X
 		jsr UpdateGrid
-		;update movement
-		ldy PARP0
+		
+                ;update movement
+		ldy #PARP0
 		jsr MovePlayerAround
-		ldy PARP1
+		ldy #PARP1
 		jsr MovePlayerAround
 		ldy #SPEED		;reset move time
 		sty SpeedCounter
+                jmp OSwait
 SkipUpdates:
-		;Will use IA to control the other player
-		;jsr UpdateIAPlayer
+            	;THIS TIME CAN BE USED TO PROCESS SOUND EFFECTS, ETC...
+                
 ;===============================================================================
 ; Restaring game loop
 ;===============================================================================
@@ -548,6 +544,8 @@ OSwait:
 		lda INTIM ; Check the timer
 		bne OSwait ; Branch if its Not Equal to 0
 		jmp Main ; JuMP to Main
+
+                
 ;===============================================================================
 ; Draw the grid
 ;===============================================================================
@@ -629,10 +627,11 @@ RowsEnd:
 		sta PF0
 		sta PF1
 		sta PF2 	; clear playfield
-		sta WSYNC
+		
 		; line delimimter after grid
 		lda #$68
 		sta COLUBK
+                sta WSYNC
 		lda #0
 		sta PF0
 		sta PF1
@@ -823,143 +822,115 @@ DivideLoop:
 ; --------------
 ;
 ;===============================================================================
-CheckCollision subroutine
-		;check collisions
-		; Did the player collide with the wall?
-		cpx PARP0
-		bne TryCollP1
-		;players collide against each other?
-		;bit CXPPMM
-		;bmi CollP0
-		bit CXP0FB
-		bpl SkipCollP0
-		;collision P0 HERE
-		jmp CollP1
-SkipCollP0:
-		rts
-TryCollP1:
-		;players collide against each other?
-		;bit CXPPMM
-		;bmi CollP1
-		bit CXP1FB
-		bpl SkipCollP1
-		;collision P0 HERE
-		jmp CollP0
-SkipCollP1:
-		rts
-CollP0:
-		jmp SkipPowerUpP0; TODO
-                
-		;check for the poweup
-		lda PlayerState
-		and #PS_P0_POWR
-		cmp #PS_P0_POWR
-		bne SkipPowerUpP0
-		lda #$00
-		ora PlayerState
-		sta PlayerState
-		;decrease power up
-		lda PowerUps
-		and #$F0
-		lsr
-		lsr
-		lsr
-		lsr
-		sbc #1
-		tay
-		asl
-		asl
-		asl
-		asl
-		ora PowerUps
-		sta PowerUps
-		cpy #0
-		;bne DoNothing
-SkipPowerUpP0:
-		; updating Score
-		lda Scores
-		and #$0F
-		tay
-		iny
-		sty TempP0
-		lda Scores
-		and #$F0
-		ora TempP0
-		sta Scores
-		cpy #9
-		bne SkipP0Inc
-		;lda GameState
-		;and #$F0
-		;flag to reset the turn
-		lda #P0WINS_STATE
-		sta GameState
-		rts
-SkipP0Inc:
-		lda GameState
-		;and #$0F
-		cmp #P1WINS_STATE
-		beq DoNothing
-		;lda GameState
-		;and #$F0
-		;flag to reset the turn
-		lda #PAUSE_STATE
-		sta GameState
-		;set player flag
-		lda #PS_P0_TURN
-		ora PlayerState
-		sta PlayerState
-		rts
-CollP1:
-		jmp SkipPowerUpP1; TODO
-		;check for the poweup
-		lda PlayerState
-		and #PS_P1_POWR
-		cmp #PS_P1_POWR
-		beq SkipCollP1
-                
-SkipPowerUpP1:                
-		; updating Score
-		lda Scores
-		lsr
-		lsr
-		lsr
-		lsr
-		tay; increment
-		iny
-		tya
-		asl
-		asl
-		asl
-		asl
-		sta TempP0
-                
-		lda Scores
-		and #$0F
-		ora TempP0
-		sta Scores
-		;ldy TempP0
-		cpy #9
-		bne SkipP1Inc
-		;flag to reset the turn
-		lda #P1WINS_STATE
-		sta GameState
-		rts
-SkipP1Inc:
-		lda GameState
-		;and #$0F
-		cmp #P0WINS_STATE;#RESET_STATE
-		beq DoNothing
-		;lda GameState
-		;and #$F0
-		;flag to reset the turn
-		lda #PAUSE_STATE
-		sta GameState
-		;set player flag
-		lda #PS_P1_TURN
-		ora PlayerState
-		sta PlayerState
-DoNothing:
-		rts
+CheckCollision subroutine                                                                                                                                                                                             
+		;check collisions                                                                                                                                                                                     
+		; Did the player collide with the wall?                                                                                                                                                               
+		cpx #PARP0                                                                                                                                                                                             
+		bne TryCollP1                                                                                                                                                                                         
+                                                                                                                                                                                                                      
+		;players collide against each other?                                                                                                                                                                  
+		bit CXPPMM                                                                                                                                                                                            
+		bmi CollP0                                                                                                                                                                                            
+                                                                                                                                                                                                                      
+		bit CXP0FB                                                                                                                                                                                            
+		bpl SkipCollP0                                                                                                                                                                                        
+		;collision P0 HERE                                                                                                                                                                                    
+		jmp CollP1                                                                                                                                                                                            
+SkipCollP0:                                                                                                                                                                                                           
+		rts                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+TryCollP1:                                                                                                                                                                                                            
+		;players collide against each other?                                                                                                                                                                  
+		bit CXPPMM                                                                                                                                                                                            
+		bmi CollP1                                                                                                                                                                                            
+                                                                                                                                                                                                                      
+		bit CXP1FB                                                                                                                                                                                            
+		bpl SkipCollP1                                                                                                                                                                                        
+		;collision P0 HERE                                                                                                                                                                                    
+		jmp CollP0                                                                                                                                                                                            
+SkipCollP1:                                                                                                                                                                                                           
+		rts                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+CollP0: 	                                                                                                                                                                                                      
+		; updating Score                                                                                                                                                                                      
+		lda Scores                                                                                                                                                                                            
+		and #$0F                                                                                                                                                                                              
+		tay                                                                                                                                                                                                   
+		iny                                                                                                                                                                                                   
+		sty TempP0                                                                                                                                                                                            
+		lda Scores                                                                                                                                                                                            
+		and #$F0                                                                                                                                                                                              
+		ora TempP0                                                                                                                                                                                            
+		sta Scores                                                                                                                                                                                            
+                                                                                                                                                                                                                      
+		cpy #9                                                                                                                                                                                                
+		bne SkipP0Inc                                                                                                                                                                                         
+                                           
+                                           
+		lda GameState                                                                                                                                                                                              
+		and #$F0                                               
+		;flag to reset the turn                                                                                                                                                                               
+		ora #P0WINS_STATE                                                                                                                                                                                     
+		sta GameState                                                                                                                                                                                         
+		rts                                                                                                                                                                                                   
+SkipP0Inc: 	                                                                                                                                                                                                      
+		lda GameState                                                                                                                                                                                         
+		and #$0F                                                                                                                                                                                              
+		cmp #P1WINS_STATE                                                                                                                                                                             
+		beq DoNothing	                                                                                                                                                                                      
+                                                                                                                                                                                                                      
+		lda GameState                                                                                                                                                                                              
+		and #$F0                                      
+		;flag to reset the turn                                                                                                                                                                               
+		ora #PAUSE_STATE                                                                                                                                                                                 
+		sta GameState                                                                                                                                                                                         
+		rts                                                                                                                                                                                                   
+CollP1:                                                                                                                                                                                                               
+		; updating Score                                                                                                                                                                                      
+		lda Scores                                                                                                                                                                                            
+		lsr                                                                                                                                                                                                   
+		lsr                                                                                                                                                                                                   
+		lsr                                                                                                                                                                                                   
+		lsr                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+		tay; increment                                                                                                                                                                                        
+		iny                                                                                                                                                                                                   
+		tya                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+		asl                                                                                                                                                                                                   
+		asl                                                                                                                                                                                                   
+		asl                                                                                                                                                                                                   
+		asl                                                                                                                                                                                                   
+                                                                                                                                                                                                                      
+		sta TempP0                                                                                                                                                                                            
+		lda Scores                                                                                                                                                                                            
+		and #$0F                                                                                                                                                                                              
+		ora TempP0                                                                                                                                                                                            
+		sta Scores                                                                                                                                                                                            
+                                                                                                                                                                                                                      
+		;ldy TempP0                                                                                                                                                                                           
+		cpy #9                                                                                                                                                                                                
+		bne SkipP1Inc                                                                                                                                                                                         
+                                                                                                                                                                                                                      
+		;flag to reset the turn                                                                                                                                                                               
+		lda #P1WINS_STATE                                                                                                                                                                                     
+		sta GameState                                                                                                                                                                                         
+		rts                                                                                                                                                                                                   
+SkipP1Inc:                                                                                                                                                                                                            
+		lda GameState                                                                                                                                                                                         
+		and #$0F                                                                                                                                                                                              
+		cmp #P0WINS_STATE;#RESET_STATE                                                                                                                                                                        
+		beq DoNothing                                                                                                                                                                                         
+                                  
+                                  
+		lda GameState                                                                                                                                                                                              
+		and #$F0                                      
+		;flag to reset the turn                                                                                                                                                                               
+		ora #PAUSE_STATE                                                                                                                                             
+		sta GameState                                                                                                                                                                                         
+DoNothing:                                                                                                                                                                                                            
+		rts                                                                                                                                                                                                   
+
 ;===============================================================================
 ; UpdateJoystick
 ; --------------
@@ -1197,7 +1168,7 @@ DigitsBitmap
 		.byte $EE,$AA,$EE,$AA,$EE;8
 		.byte $EE,$82,$EE,$AA,$EE;9
 
-GradientColorBK
+ScoreboardColorBK
 		.byte #$64
 		.byte #$66
 		.byte #$68
